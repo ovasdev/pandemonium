@@ -1,0 +1,17 @@
+{
+  "skill": "managing-projects",
+  "evals": [
+    { "id": "ST-01", "priority": "core", "query": "добавь проект filestorage, путь /mnt/b/projects/filestorage2", "should_trigger": true, "reason": "Direct request to add a project with path" },
+    { "id": "ST-02", "priority": "core", "query": "add a new project called my-api at /home/user/api", "should_trigger": true, "reason": "English variant of adding a project" },
+    { "id": "ST-03", "priority": "core", "query": "какие проекты сейчас настроены?", "should_trigger": true, "reason": "Listing configured projects" },
+    { "id": "ST-04", "priority": "core", "query": "удали проект old-app из конфига", "should_trigger": true, "reason": "Direct request to remove a project" },
+    { "id": "ST-05", "priority": "core", "query": "смени путь проекта my-app на /mnt/c/projects/my-app", "should_trigger": true, "reason": "Changing project path" },
+    { "id": "ST-06", "priority": "edge", "query": "зарегистрируй новый проект", "should_trigger": true, "reason": "Synonym for adding a project without explicit details" },
+    { "id": "ST-07", "priority": "edge", "query": "list projects", "should_trigger": true, "reason": "Short English command to list" },
+    { "id": "SN-01", "query": "создай новый проект на NestJS", "should_trigger": false, "reason": "Scaffolding a new codebase, not registering in bot config" },
+    { "id": "SN-02", "query": "перезапусти бота", "should_trigger": false, "reason": "Bot lifecycle management, not project config — use managing-bot" },
+    { "id": "SN-03", "query": "покажи статус текущего запроса", "should_trigger": false, "reason": "Runtime status, not project configuration" },
+    { "id": "AM-01", "query": "добавь этот проект в бота", "should_trigger": true, "reason": "Borderline: 'add project to bot' implies config registration" },
+    { "id": "AM-02", "query": "проект не запускается, путь неправильный", "should_trigger": true, "reason": "Borderline: likely needs path update in config" }
+  ]
+}

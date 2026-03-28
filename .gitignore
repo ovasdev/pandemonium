@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+.env
+config.yaml
+*.db
+*.sqlite
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+pandemonium.pid
+pandemonium.log
+tca.log
+claude_stderr.log
+nohup.out
+.idea/
+
+# Proto files and project context (generated)
+.protos/
+.projects/

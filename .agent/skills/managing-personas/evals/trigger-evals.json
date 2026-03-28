@@ -1,0 +1,17 @@
+{
+  "skill": "managing-personas",
+  "evals": [
+    { "id": "ST-01", "priority": "core", "query": "создай персону для код-ревью", "should_trigger": true, "reason": "Direct request to create a persona" },
+    { "id": "ST-02", "priority": "core", "query": "добавь скил postgresql персоне devops_engineer", "should_trigger": true, "reason": "Adding a skill to an existing persona" },
+    { "id": "ST-03", "priority": "core", "query": "какие персоны сейчас есть?", "should_trigger": true, "reason": "Listing personas" },
+    { "id": "ST-04", "priority": "core", "query": "привяжи душу наставника к персоне code_reviewer", "should_trigger": true, "reason": "Assigning a soul to a persona" },
+    { "id": "ST-05", "priority": "core", "query": "удали персону old_role", "should_trigger": true, "reason": "Removing a persona" },
+    { "id": "ST-06", "priority": "edge", "query": "create a new agent role for testing", "should_trigger": true, "reason": "English variant, 'agent role' implies persona" },
+    { "id": "ST-07", "priority": "edge", "query": "убери скил brainstorming у администратора", "should_trigger": true, "reason": "Removing a skill from a persona" },
+    { "id": "SN-01", "query": "создай новый скил для деплоя", "should_trigger": false, "reason": "Creating a skill, not a persona — use skill-creator" },
+    { "id": "SN-02", "query": "создай душу для наставника", "should_trigger": false, "reason": "Creating a soul, not a persona — use managing-souls" },
+    { "id": "SN-03", "query": "добавь проект в конфиг", "should_trigger": false, "reason": "Managing projects, not personas — use managing-projects" },
+    { "id": "AM-01", "query": "нужна новая роль с навыками тестирования", "should_trigger": true, "reason": "Borderline: 'role with skills' maps to persona creation" },
+    { "id": "AM-02", "query": "измени характер у персоны", "should_trigger": true, "reason": "Borderline: changing personality traits may mean editing soul reference or persona style" }
+  ]
+}

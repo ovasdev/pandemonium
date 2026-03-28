@@ -1,0 +1,216 @@
+---
+name: filestorage2-api
+description: "Universal reference for filestorage2 server REST API. Triggers when working with any filestorage2 instance — uploading, downloading, searching, tagging, sharing files, managing collections. Server-agnostic: specific server configs live in workflows."
+---
+
+# filestorage2 — API Reference
+
+Универсальный справочник по API filestorage2. Конкретные серверы (адреса, ключи) — в воркфлоу.
+
+## Authentication
+
+```
+Authorization: Bearer <API_KEY>
+```
+
+API keys имеют префикс `sk-fs2-`. Передаются в заголовке `Authorization: Bearer`.
+
+## Files
+
+### Upload
+
+```bash
+curl -s -X POST "$BASE_URL/api/files" \
+  -H "Authorization: Bearer $API_KEY" \
+  -F "file=@/path/to/file;filename=display-name.ext" \
+  -F "description=Optional description"
+```
+
+Response: file object с `id`, `file_group_id` (UUID), `original_filename`, `file_size`, `mime_type`, `uploaded_at`.
+
+### List
+
+```bash
+curl -s "$BASE_URL/api/files?limit=50&offset=0" \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+Query params:
+| Param | Description |
+|---|---|
+| `limit`, `offset` | Пагинация |
+| `search` | По имени файла |
+| `tag_ids` | CSV: `1,2,3` |
+| `collection_ids` | CSV |
+| `type` | MIME категория: `image`, `document`, `video`, `audio` |
+| `date_from`, `date_to` | ISO 8601 |
+| `sort`, `order` | Сортировка |
+| `deleted` | Включать удалённые |
+
+Response: `{"items": [...], "total": N, "offset": 0, "limit": 50}`
+
+### Full-text search
+
+```bash
+curl -s "$BASE_URL/api/files/search?q=keyword&limit=20" \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+### Get metadata
+
+```bash
+curl -s "$BASE_URL/api/files/{id}" -H "Authorization: Bearer $API_KEY"
+```
+
+### Update metadata
+
+```bash
+curl -s -X PATCH "$BASE_URL/api/files/{id}" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"description": "new desc", "original_filename": "new-name.ext"}'
+```
+
+### Download
+
+```bash
+curl -s "$BASE_URL/api/files/{id}/download" \
+  -H "Authorization: Bearer $API_KEY" -o output.ext
+```
+
+Supports `Range` header for partial content (206).
+
+### Thumbnail (images)
+
+```bash
+curl -s "$BASE_URL/api/files/{id}/thumbnail?size=200" \
+  -H "Authorization: Bearer $API_KEY" -o thumb.jpg
+```
+
+Sizes: `200` (default), `600`.
+
+### Delete (soft)
+
+```bash
+curl -s -X DELETE "$BASE_URL/api/files/{id}" -H "Authorization: Bearer $API_KEY"
+```
+
+### Versions
+
+```bash
+# List versions
+curl -s "$BASE_URL/api/files/{id}/versions" -H "Authorization: Bearer $API_KEY"
+
+# Upload new version
+curl -s -X POST "$BASE_URL/api/files/{id}/versions" \
+  -H "Authorization: Bearer $API_KEY" -F "file=@/path/to/new-version"
+
+# Rollback
+curl -s -X POST "$BASE_URL/api/files/{id}/rollback" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"target_version_id": 1}'
+```
+
+### Deduplication
+
+```bash
+curl -s -X POST "$BASE_URL/api/files/check-hash" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"sha256_hash": "abcdef..."}'
+# Response: {"exists": true, "file_id": 1, "file_group_id": "uuid"}
+```
+
+## Tags
+
+```bash
+# List all tags
+curl -s "$BASE_URL/api/tags" -H "Authorization: Bearer $API_KEY"
+
+# Create tag
+curl -s -X POST "$BASE_URL/api/tags" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "TagName", "color": "#ff5733"}'
+
+# Update tag
+curl -s -X PATCH "$BASE_URL/api/tags/{id}" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "New name", "color": "#hex"}'
+
+# Delete tag
+curl -s -X DELETE "$BASE_URL/api/tags/{id}" -H "Authorization: Bearer $API_KEY"
+
+# Get file's tags
+curl -s "$BASE_URL/api/files/{file_id}/tags" -H "Authorization: Bearer $API_KEY"
+
+# Tag a file
+curl -s -X POST "$BASE_URL/api/files/{file_id}/tags" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"tag_ids": [1, 2]}'
+
+# Remove tag from file
+curl -s -X DELETE "$BASE_URL/api/files/{file_id}/tags/{tag_id}" \
+  -H "Authorization: Bearer $API_KEY"
+
+# Bulk tag files
+curl -s -X POST "$BASE_URL/api/tags/{id}/files" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"file_ids": [1, 2, 3]}'
+```
+
+## Collections
+
+```bash
+# List collections
+curl -s "$BASE_URL/api/collections" -H "Authorization: Bearer $API_KEY"
+
+# Create collection
+curl -s -X POST "$BASE_URL/api/collections" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Collection", "description": "..."}'
+
+# Add files to collection
+curl -s -X POST "$BASE_URL/api/collections/{id}/files" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"file_ids": [1, 2, 3]}'
+```
+
+## Sharing (v2)
+
+```bash
+# Create share rule
+curl -s -X POST "$BASE_URL/api/sharing" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"resource_type":"file","file_group_id":"<UUID>","visibility":"authenticated"}'
+
+# List share rules
+curl -s "$BASE_URL/api/sharing" -H "Authorization: Bearer $API_KEY"
+
+# Delete share rule
+curl -s -X DELETE "$BASE_URL/api/sharing/{id}" -H "Authorization: Bearer $API_KEY"
+```
+
+Visibility: `authenticated`, `public`, `link_only`.
+Resource types: `file`, `tag`, `collection`.
+
+## Health
+
+```bash
+curl -s "$BASE_URL/api/health"
+# {"status": "ok", "database": "connected", "minio": "connected"}
+```
+
+## Limits
+
+- Rate limit: 120 req/min
+- Upload size: server-configurable (`max_upload_size`)
+- Filename: 1-255 chars
+- Tag name: 1-100 chars

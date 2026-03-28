@@ -1,0 +1,131 @@
+{
+  "skill": "nestjs-expert",
+  "description": "Trigger evaluation queries for nestjs-expert.",
+  "evals": [
+    {
+      "id": "ST-01",
+      "priority": "core",
+      "query": "Getting 'Nest can't resolve dependencies of the AuthService' error — what's wrong?",
+      "should_trigger": true,
+      "reason": "Classic NestJS DI resolution error — direct match for the skill's primary domain."
+    },
+    {
+      "id": "ST-02",
+      "priority": "core",
+      "query": "How do I create a custom guard that checks user roles in NestJS?",
+      "should_trigger": true,
+      "reason": "Guards are explicitly listed as a trigger phrase in the description."
+    },
+    {
+      "id": "ST-03",
+      "priority": "core",
+      "query": "Circular dependency between UserModule and ChatModule — how to fix?",
+      "should_trigger": true,
+      "reason": "'circular dependency' is an explicit trigger phrase for this skill."
+    },
+    {
+      "id": "ST-04",
+      "priority": "core",
+      "query": "My JwtStrategy isn't working — passport-jwt is configured but token validation fails",
+      "should_trigger": true,
+      "reason": "Passport.js JWT strategy is a core domain of this skill."
+    },
+    {
+      "id": "ST-05",
+      "priority": "core",
+      "query": "How to write an interceptor that logs request duration in NestJS?",
+      "should_trigger": true,
+      "reason": "'interceptors' is an explicit trigger phrase in the description."
+    },
+    {
+      "id": "ST-06",
+      "priority": "edge",
+      "query": "TypeORM entity not saving to database — no error, just silent failure",
+      "should_trigger": true,
+      "reason": "TypeORM entity issues in NestJS context — matches 'debugging TypeORM entities or connections'."
+    },
+    {
+      "id": "ST-07",
+      "priority": "edge",
+      "query": "How do I set up ConfigModule to load .env in NestJS?",
+      "should_trigger": true,
+      "reason": "ConfigModule is part of NestJS module architecture domain."
+    },
+    {
+      "id": "ST-08",
+      "priority": "edge",
+      "query": "нужна помощь с DI ошибкой в NestJS — провайдер не резолвится",
+      "should_trigger": true,
+      "reason": "Russian phrasing of NestJS DI error — skill should trigger even without explicit language."
+    },
+    {
+      "id": "ST-09",
+      "priority": "edge",
+      "query": "как сделать кастомный декоратор для получения текущего пользователя из JWT?",
+      "should_trigger": true,
+      "reason": "Russian phrasing around JWT custom decorator — core NestJS auth domain."
+    },
+    {
+      "id": "ST-10",
+      "priority": "edge",
+      "query": "как добавить middleware для логирования всех запросов?",
+      "should_trigger": true,
+      "reason": "Russian phrasing about NestJS middleware — explicitly in the domain coverage."
+    },
+    {
+      "id": "SN-01",
+      "query": "How do I write a React hook that fetches data from an API?",
+      "should_trigger": false,
+      "reason": "Frontend React question — no NestJS involvement; react-patterns or react-best-practices applies."
+    },
+    {
+      "id": "SN-02",
+      "query": "How do I add a TypeScript generic constraint to a mapped type?",
+      "should_trigger": false,
+      "reason": "Pure TypeScript type-level question — typescript-expert skill applies, not nestjs-expert."
+    },
+    {
+      "id": "SN-03",
+      "query": "What is the correct way to mock a repository in Jest?",
+      "should_trigger": false,
+      "reason": "Pure Jest mocking question without NestJS framework context — backend-testing skill applies."
+    },
+    {
+      "id": "SN-04",
+      "query": "How do I configure PostgreSQL indexes for a users table?",
+      "should_trigger": false,
+      "reason": "Pure DB schema question without NestJS context — postgresql skill applies."
+    },
+    {
+      "id": "AM-05",
+      "query": "Write unit tests for this NestJS service",
+      "should_trigger": true,
+      "reason": "Borderline: NestJS unit test authoring with Jest/Supertest is included in nestjs-expert scope, but backend-testing is the preferred skill for general testing patterns."
+    },
+    {
+      "id": "AM-01",
+      "query": "My Express middleware isn't running in the right order",
+      "should_trigger": true,
+      "reason": "Borderline: middleware order is NestJS domain but Express is mentioned; apply if project uses NestJS with Express adapter."
+    },
+    {
+      "id": "AM-02",
+      "query": "TypeORM migration failed — how do I debug it?",
+      "should_trigger": true,
+      "reason": "Borderline: TypeORM migrations are in scope for nestjs-expert but postgresql skill also covers DB schema concerns."
+    },
+
+    {
+      "id": "AM-03",
+      "query": "как написать тест для NestJS контроллера?",
+      "should_trigger": true,
+      "reason": "Borderline: nestjs-expert description includes 'testing (Jest/Supertest)' in scope; backend-testing is preferred but this query may trigger either skill."
+    },
+    {
+      "id": "AM-04",
+      "query": "This NestJS service test is failing — the mock isn't working",
+      "should_trigger": true,
+      "reason": "Borderline: debugging a failing test in NestJS context spans both nestjs-expert (DI/module setup) and backend-testing (mock patterns)."
+    }
+  ]
+}

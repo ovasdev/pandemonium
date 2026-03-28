@@ -1,0 +1,119 @@
+{
+  "skill": "postgresql",
+  "description": "Trigger evaluation queries for postgresql skill. priority: 'core' = must-trigger for the skill to be useful; 'edge' = should trigger but failure is less critical.",
+  "evals": [
+    {
+      "id": "ST-01",
+      "priority": "core",
+      "query": "Design the database table for user sessions",
+      "should_trigger": true,
+      "reason": "Schema design request — core use case, covers data types, PKs, indexes for the sessions table"
+    },
+    {
+      "id": "ST-02",
+      "priority": "core",
+      "query": "Which data type should I use for storing video duration?",
+      "should_trigger": true,
+      "reason": "Data type selection — skill's data types section guides INTERVAL vs NUMERIC vs INTEGER choice"
+    },
+    {
+      "id": "ST-03",
+      "priority": "core",
+      "query": "Add an index to speed up user search by email",
+      "should_trigger": true,
+      "reason": "Index design — expression index on LOWER(email) pattern is explicitly covered"
+    },
+    {
+      "id": "ST-04",
+      "priority": "core",
+      "query": "Set up row-level security so users can only see their own records",
+      "should_trigger": true,
+      "reason": "RLS policy creation — explicitly covered in the RLS section"
+    },
+    {
+      "id": "ST-05",
+      "priority": "core",
+      "query": "Review this migration — is it safe to run on production?",
+      "should_trigger": true,
+      "reason": "Safe DDL migration review — Safe Schema Evolution section applies"
+    },
+    {
+      "id": "ST-06",
+      "priority": "core",
+      "query": "Plan partitioning for the events table — it'll have billions of rows",
+      "should_trigger": true,
+      "reason": "Table partitioning design — RANGE/LIST/HASH partitioning guidance is in scope"
+    },
+    {
+      "id": "ST-07",
+      "priority": "core",
+      "query": "Should I use JSONB or separate columns for user preferences?",
+      "should_trigger": true,
+      "reason": "JSONB vs relational column decision — JSONB Guidance section covers this trade-off"
+    },
+    {
+      "id": "ST-08",
+      "priority": "edge",
+      "query": "Add FK indexes to the orders table",
+      "should_trigger": true,
+      "reason": "FK index — explicitly called out as a gotcha (PostgreSQL doesn't auto-create FK indexes)"
+    },
+    {
+      "id": "ST-09",
+      "priority": "core",
+      "query": "спроектируй таблицу для хранения публикаций авторов",
+      "should_trigger": true,
+      "reason": "Russian: schema design request — core use case for table design with PKs, indexes"
+    },
+    {
+      "id": "ST-10",
+      "priority": "core",
+      "query": "какой тип данных использовать для хранения денег?",
+      "should_trigger": true,
+      "reason": "Russian: money data type — skill explicitly says NUMERIC for money, never float"
+    },
+    {
+      "id": "ST-11",
+      "priority": "edge",
+      "query": "нужно ли нам партиционирование для таблицы логов?",
+      "should_trigger": true,
+      "reason": "Russian: partitioning decision for logs table — RANGE partitioning and TimescaleDB guidance applies"
+    },
+    {
+      "id": "SN-01",
+      "query": "Optimize this slow SQL query — add EXPLAIN ANALYZE output",
+      "should_trigger": false,
+      "reason": "Query tuning without schema changes — explicitly excluded from this skill's scope"
+    },
+    {
+      "id": "SN-02",
+      "query": "Create a TypeORM entity class for the User table",
+      "should_trigger": false,
+      "reason": "TypeORM entity class design — handled by nestjs-expert skill"
+    },
+    {
+      "id": "SN-03",
+      "query": "Set up a MongoDB collection for product catalog",
+      "should_trigger": false,
+      "reason": "Non-PostgreSQL database — this skill is PostgreSQL-specific only"
+    },
+    {
+      "id": "AM-01",
+      "query": "Add a unique constraint on (user_id, movie_id) in the watchlist table",
+      "should_trigger": true,
+      "reason": "Borderline: adding a constraint is a schema change — UNIQUE constraint guidance in Constraints section applies"
+    },
+    {
+      "id": "AM-02",
+      "query": "Should user_id be UUID or BIGINT?",
+      "should_trigger": true,
+      "reason": "Borderline: ID type selection — skill Data Types section covers UUID vs BIGINT trade-offs explicitly"
+    },
+    {
+      "id": "AM-03",
+      "query": "Create a migration to add a nullable column",
+      "should_trigger": true,
+      "reason": "Borderline: DDL migration safety — Safe Schema Evolution section covers volatile defaults and rewrite risks"
+    }
+  ]
+}

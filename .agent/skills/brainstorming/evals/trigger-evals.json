@@ -1,0 +1,118 @@
+{
+  "skill": "brainstorming",
+  "description": "Trigger evaluation queries for the brainstorming skill.",
+  "evals": [
+    {
+      "id": "ST-01",
+      "priority": "core",
+      "query": "I have an idea for a new notification system — let's think through how it should work before I start coding",
+      "should_trigger": true,
+      "reason": "Explicit 'think through before coding' intent — core trigger for design facilitation"
+    },
+    {
+      "id": "ST-02",
+      "priority": "core",
+      "query": "how should we approach the author dashboard? not sure if it should be a separate page or a modal",
+      "should_trigger": true,
+      "reason": "Architecture decision with open options — exactly the kind of pre-implementation dialogue this skill handles"
+    },
+    {
+      "id": "ST-03",
+      "priority": "core",
+      "query": "help me design the subscription flow — users should be able to subscribe to authors",
+      "should_trigger": true,
+      "reason": "Explicit 'help me design' phrasing triggers design facilitation"
+    },
+    {
+      "id": "ST-04",
+      "priority": "core",
+      "query": "давай подумаем как сделать систему ролей в проекте",
+      "should_trigger": true,
+      "reason": "RU trigger phrase 'давай подумаем' — canonical Russian trigger for this skill"
+    },
+    {
+      "id": "ST-05",
+      "priority": "core",
+      "query": "обсудим архитектуру модуля уведомлений, что-то не нравится мне текущий подход",
+      "should_trigger": true,
+      "reason": "RU trigger phrase 'обсудим архитектуру' — design discussion before implementation"
+    },
+    {
+      "id": "ST-06",
+      "priority": "core",
+      "query": "есть идея: добавить real-time коллаборацию в редактор, как лучше сделать?",
+      "should_trigger": true,
+      "reason": "RU phrases 'есть идея' and 'как лучше сделать' both match trigger list"
+    },
+    {
+      "id": "ST-07",
+      "priority": "edge",
+      "query": "let's figure out the right data model for chapters before touching the DB",
+      "should_trigger": true,
+      "reason": "'Let's figure out' + 'before touching' signals pre-implementation design thinking"
+    },
+    {
+      "id": "ST-08",
+      "priority": "edge",
+      "query": "I'm not sure whether to use events or direct calls for the payment module — what do you think?",
+      "should_trigger": true,
+      "reason": "Architecture choice with no confirmed decision — calls for facilitated exploration"
+    },
+    {
+      "id": "ST-09",
+      "priority": "edge",
+      "query": "нужно придумать как строить пермишены для совместного редактирования, не знаю с чего начать",
+      "should_trigger": true,
+      "reason": "RU: 'придумать как' + uncertainty signal → pre-implementation ideation"
+    },
+    {
+      "id": "ST-10",
+      "priority": "edge",
+      "query": "what are the trade-offs between storing drafts in Redis vs the main DB?",
+      "should_trigger": true,
+      "reason": "Trade-off comparison without confirmed design — brainstorming territory"
+    },
+    {
+      "id": "SN-01",
+      "query": "implement the notification service we discussed — use the Redis pub/sub approach",
+      "should_trigger": false,
+      "reason": "Design is confirmed and user is asking for implementation — brainstorming is done, hand off to execution"
+    },
+    {
+      "id": "SN-02",
+      "query": "fix the bug in the payment saga where it doesn't retry on 503",
+      "should_trigger": false,
+      "reason": "Concrete bug fix — no design decision involved, this is implementation/debugging work"
+    },
+    {
+      "id": "SN-03",
+      "query": "write a spec document for the chapter collaboration feature we already agreed on",
+      "should_trigger": false,
+      "reason": "Design is confirmed, user wants documentation — hand off to feature-spec-writer"
+    },
+    {
+      "id": "SN-04",
+      "query": "add a unit test for the UserRepository.findOne method",
+      "should_trigger": false,
+      "reason": "Concrete implementation task with no design ambiguity"
+    },
+    {
+      "id": "AM-01",
+      "query": "should the chapter model have a status field?",
+      "should_trigger": true,
+      "reason": "Borderline: looks like a small question but is actually an unresolved data-model decision — brainstorming applies"
+    },
+    {
+      "id": "AM-02",
+      "query": "I started implementing the search feature but I'm not happy with the approach",
+      "should_trigger": true,
+      "reason": "Borderline: implementation already started, but user signals design uncertainty — stop and brainstorm the approach before continuing"
+    },
+    {
+      "id": "AM-03",
+      "query": "напиши мне план реализации фичи подписок",
+      "should_trigger": false,
+      "reason": "Borderline: 'план реализации' sounds like design but is actually asking for an implementation plan — if the design is already known, skip to implementation plan creation rather than facilitating a full brainstorm"
+    }
+  ]
+}
