@@ -1,0 +1,50 @@
+bot-administrator:
+  project: pandemonium-bot
+  path: /mnt/b/projects/pandemonium-bot
+  soul: null
+  triggers:
+    - администрирование
+    - создай персону
+    - создай душу
+    - создай скил
+    - добавь проект
+    - удали проект
+    - какие проекты
+    - переключи персону
+
+pandemonium-developer:
+  project: pandemonium-bot
+  path: /mnt/b/projects/pandemonium-bot
+  soul: null
+  triggers:
+    - баг
+    - исправь
+    - реализуй
+    - добавь фичу
+    - рефакторинг
+    - не работает
+    - ошибка
+    - код
+    - хендлер
+    - callback
+    - сессия
+    - стриминг
+    - Claude Code
+    - subprocess
+
+downloader-developer:
+  project: downloader
+  path: /mnt/b/projects/downloader
+  soul: null
+  triggers:
+    - downloader
+    - скачать
+    - скачивание
+    - yt-dlp
+    - youtube
+    - загрузка видео
+    - извлечение текста
+    - article extraction
+    - media download
+    - filestorage
+    - marginalias upload

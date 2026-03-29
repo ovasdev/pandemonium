@@ -1,8 +1,11 @@
-"""Inline button callback handlers (Cancel, Allow/Deny, Project switch)."""
+"""Inline button callback handlers (Cancel, Allow/Deny, Project switch, Quantum dice)."""
 
+import asyncio
 import logging
+from pathlib import Path
 
 from aiogram import F, Router
+from aiogram.enums import ParseMode
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from pandemonium.tgbot.config import AppConfig, scan_personas
@@ -94,6 +97,44 @@ async def on_project_switch(
         logger.debug("Could not update project keyboard", exc_info=True)
 
     await callback.answer(f"Switched to {project.name}")
+
+
+_QRAND_SCRIPT = Path(__file__).resolve().parents[4] / ".pandemonium" / "tools" / "quantum_random.sh"
+
+
+@router.callback_query(F.data.startswith("qrand:"))
+async def on_qrand(callback: CallbackQuery) -> None:
+    """Handle quantum dice button press — roll and reply."""
+    try:
+        parts = (callback.data or "").split(":")
+        count, from_val, to_val = int(parts[1]), int(parts[2]), int(parts[3])
+    except (ValueError, IndexError):
+        await callback.answer("Invalid action.")
+        return
+
+    proc = await asyncio.create_subprocess_exec(
+        str(_QRAND_SCRIPT), str(count), str(from_val), str(to_val),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=30)
+    except TimeoutError:
+        proc.kill()
+        await callback.answer("Квантовая кость недоступна.")
+        return
+
+    if proc.returncode != 0:
+        await callback.answer("Квантовая кость недоступна.")
+        return
+
+    result = stdout.decode().strip()
+    sides = to_val - from_val + 1
+    text = f"🎲 d{sides} → <b>{result}</b>"
+
+    if callback.message:
+        await callback.message.reply(text, parse_mode=ParseMode.HTML)
+    await callback.answer()
 
 
 @router.callback_query(F.data == "noop")

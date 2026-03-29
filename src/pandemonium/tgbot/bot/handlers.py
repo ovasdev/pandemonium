@@ -1,5 +1,6 @@
 """Telegram bot command and message handlers."""
 
+import asyncio
 import logging
 import re
 from pathlib import Path
@@ -69,6 +70,7 @@ async def cmd_help(message: Message) -> None:
         "/tokens — token usage stats\n"
         "/clear — reset conversation context\n"
         "/reload — reload config without restart\n"
+        "/qrand [NdX] — quantum random dice\n"
         "/protos &lt;text&gt; — send prompt (works in groups)"
     )
     await message.answer(text, parse_mode=ParseMode.HTML)
@@ -456,6 +458,93 @@ async def _start_text_request(
     except Exception:
         logger.exception("Failed to create request")
         await status_msg.edit_text("Failed to start Claude Code.")
+
+
+_QRAND_SCRIPT = Path(__file__).resolve().parents[3] / "pandemonium" / "tgbot" / ".." / ".." / ".." / ".pandemonium" / "tools" / "quantum_random.sh"
+# Resolve once at import time
+_QRAND_SCRIPT = (Path(__file__).resolve().parents[4] / ".pandemonium" / "tools" / "quantum_random.sh")
+
+_DICE_PRESETS = [
+    ("d4", 1, 4),
+    ("d6", 1, 6),
+    ("d8", 1, 8),
+    ("d10", 1, 10),
+    ("d12", 1, 12),
+    ("d20", 1, 20),
+    ("d100", 1, 100),
+]
+
+
+async def _run_quantum_random(count: int, from_val: int, to_val: int) -> str:
+    """Run quantum_random.sh and return its stdout or an error message."""
+    proc = await asyncio.create_subprocess_exec(
+        str(_QRAND_SCRIPT), str(count), str(from_val), str(to_val),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+    if proc.returncode != 0:
+        return "Квантовая кость недоступна."
+    return stdout.decode().strip()
+
+
+def _parse_dice_notation(text: str) -> tuple[int, int] | None:
+    """Parse NdX notation (e.g. '5d6'). Returns (count, sides) or None."""
+    m = re.fullmatch(r"(\d+)[dDдД](\d+)", text.strip())
+    if m:
+        count, sides = int(m.group(1)), int(m.group(2))
+        if count >= 1 and sides >= 2:
+            return count, sides
+    return None
+
+
+@router.message(Command("qrand"))
+async def cmd_qrand(message: Message) -> None:
+    """Handle /qrand [NdX] — quantum random dice."""
+    args = (message.text or "").split(maxsplit=1)[1].strip() if (message.text or "").strip().count(" ") >= 1 else ""
+
+    if not args:
+        # No arguments — show dice preset panel
+        buttons: list[list[InlineKeyboardButton]] = []
+        row: list[InlineKeyboardButton] = []
+        for name, from_val, to_val in _DICE_PRESETS:
+            row.append(InlineKeyboardButton(
+                text=name,
+                callback_data=f"qrand:1:{from_val}:{to_val}",
+            ))
+            if len(row) == 4:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+        await message.answer(
+            "🎲 Квантовая кость",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+        )
+        return
+
+    # Try to parse NdX notation
+    parsed = _parse_dice_notation(args)
+    if not parsed:
+        await message.reply("Формат: /qrand NdX (например, /qrand 5d6)")
+        return
+
+    count, sides = parsed
+    if count > 100:
+        await message.reply("Максимум 100 бросков за раз.")
+        return
+
+    result = await _run_quantum_random(count, 1, sides)
+    numbers = result.split("\n")
+    total = sum(int(n) for n in numbers if n.isdigit())
+    header = f"🎲 {count}d{sides}"
+    if count == 1:
+        await message.reply(f"{header} → <b>{result}</b>", parse_mode=ParseMode.HTML)
+    else:
+        await message.reply(
+            f"{header} → {', '.join(numbers)}\nСумма: <b>{total}</b>",
+            parse_mode=ParseMode.HTML,
+        )
 
 
 @router.message(Command("protos"))
