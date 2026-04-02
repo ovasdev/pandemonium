@@ -16,6 +16,7 @@ tca.log
 claude_stderr.log
 nohup.out
 .idea/
+.obsidian/
 
 # Proto files and project context (generated)
 .protos/
