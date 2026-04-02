@@ -48,3 +48,33 @@ downloader-developer:
     - media download
     - filestorage
     - marginalias upload
+
+paw-developer:
+  project: paw
+  path: /home/alyx/Projects/paw
+  soul: null
+  triggers:
+    - лапка
+    - paw
+    - react native
+    - питомцы
+    - объявления
+    - карта
+    - экран
+    - компонент
+    - supabase
+
+qrandbot-developer:
+  project: qrandbot
+  path: /mnt/b/projects/qrandbot
+  soul: null
+  triggers:
+    - qrand
+    - квантовый
+    - случайные числа
+    - кубик
+    - dice
+    - QRNG
+    - бросок
+    - d20
+    - random
