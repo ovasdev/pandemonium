@@ -34,6 +34,6 @@ fi
 # Start
 unset CLAUDECODE
 unset CLAUDE_CODE_ENTRYPOINT
-nohup uv run python -m pandemonium.tgbot > pandemonium.log 2>&1 &
+nohup uv run python -m pandemonium.tgbot >> pandemonium.log 2>&1 &
 echo $! > pandemonium.pid
 echo "Bot started (PID $!), log: pandemonium.log"

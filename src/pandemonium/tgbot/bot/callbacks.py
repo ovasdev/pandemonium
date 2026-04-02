@@ -132,6 +132,27 @@ async def on_qrand(callback: CallbackQuery) -> None:
     sides = to_val - from_val + 1
     text = f"🎲 d{sides} → <b>{result}</b>"
 
+    # Highlight the pressed button, keep all buttons active for re-rolls
+    if callback.message and callback.message.reply_markup:
+        new_rows: list[list[InlineKeyboardButton]] = []
+        for row in callback.message.reply_markup.inline_keyboard:
+            new_row: list[InlineKeyboardButton] = []
+            for btn in row:
+                label = btn.text.lstrip("▸ ") if btn.text.startswith("▸ ") else btn.text
+                if btn.callback_data == callback.data:
+                    label = f"▸ {label}"
+                new_row.append(InlineKeyboardButton(
+                    text=label,
+                    callback_data=btn.callback_data,
+                ))
+            new_rows.append(new_row)
+        try:
+            await callback.message.edit_reply_markup(
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=new_rows),
+            )
+        except Exception:
+            logger.debug("Could not update dice buttons", exc_info=True)
+
     if callback.message:
         await callback.message.reply(text, parse_mode=ParseMode.HTML)
     await callback.answer()
@@ -149,17 +170,14 @@ async def on_persona_switch(
     config: AppConfig,
     session_manager: SessionManager,
 ) -> None:
-    """Handle persona selection — only works for the default project."""
+    """Handle persona selection for the currently active project."""
     persona_name = (callback.data or "").split(":", 1)[1]
 
-    # Personas only work in the default project
-    default_project = config.default_project
-    if session_manager.active_project_id != default_project.id:
-        await callback.answer("Personas only available in the default project.")
-        return
+    # Get the active project
+    active_project = config.get_project(session_manager.active_project_id) or config.default_project
 
     # Verify persona exists on disk
-    personas = scan_personas(default_project.path)
+    personas = scan_personas(active_project.path)
     if persona_name not in personas:
         await callback.answer("Unknown persona.")
         return

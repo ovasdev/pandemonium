@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
+import os
 import re
+import signal
 from pathlib import Path
 
 import aiosqlite
@@ -70,6 +72,7 @@ async def cmd_help(message: Message) -> None:
         "/tokens — token usage stats\n"
         "/clear — reset conversation context\n"
         "/reload — reload config without restart\n"
+        "/reboot — restart the bot\n"
         "/qrand [NdX] — quantum random dice\n"
         "/protos &lt;text&gt; — send prompt (works in groups)"
     )
@@ -154,6 +157,39 @@ async def cmd_reload(
     )
 
 
+@router.message(Command("reboot"))
+async def cmd_reboot(
+    message: Message,
+    session_manager: SessionManager,
+) -> None:
+    """Handle /reboot — restart the bot via restart.sh."""
+    active = session_manager.active_session
+    if active and active.state in (SessionState.RUNNING, SessionState.AWAITING_INPUT):
+        await message.answer("Cannot reboot while a request is running. Cancel it first.")
+        return
+
+    bot_root = Path(__file__).resolve().parents[4]
+    start_script = bot_root / "start.sh"
+    if not start_script.exists():
+        await message.answer("start.sh not found.")
+        return
+
+    await message.answer("Rebooting...")
+    pid = os.getpid()
+    # Spawn a fully detached shell that waits for this process to die,
+    # then starts the bot fresh. Using shell + disown to survive parent exit.
+    await asyncio.create_subprocess_shell(
+        f"(while kill -0 {pid} 2>/dev/null; do sleep 0.5; done; "
+        f"cd {bot_root} && bash start.sh) &",
+        start_new_session=True,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+        stdin=asyncio.subprocess.DEVNULL,
+    )
+    # Now trigger graceful shutdown
+    os.kill(pid, signal.SIGTERM)
+
+
 @router.message(Command("projects"))
 async def cmd_projects(
     message: Message,
@@ -183,11 +219,11 @@ async def cmd_personas(
     config: AppConfig,
     session_manager: SessionManager,
 ) -> None:
-    """Handle /personas — show persona list for the default project only."""
-    default_project = config.default_project
-    personas = scan_personas(default_project.path)
+    """Handle /personas — show persona list for the currently active project."""
+    project = _get_active_project(config, session_manager)
+    personas = scan_personas(project.path)
     if not personas:
-        await message.answer("No personas found.")
+        await message.answer(f"No personas found for {project.name}.")
         return
 
     active_persona = session_manager.active_persona
@@ -202,7 +238,7 @@ async def cmd_personas(
         ])
 
     await message.answer(
-        f"Personas ({default_project.name}):",
+        f"Personas ({project.name}):",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
     )
 
@@ -545,6 +581,175 @@ async def cmd_qrand(message: Message) -> None:
             f"{header} → {', '.join(numbers)}\nСумма: <b>{total}</b>",
             parse_mode=ParseMode.HTML,
         )
+
+
+@router.message(Command("wiki"))
+async def cmd_wiki(message: Message) -> None:
+    """Handle /wiki <query> — fetch Wikipedia article and save to marginalias."""
+    import tempfile
+    from datetime import datetime, timezone
+    from urllib.parse import quote
+
+    import aiohttp
+
+    query = (message.text or "").split(maxsplit=1)[1].strip() if (message.text or "").strip().count(" ") >= 1 else ""
+    if not query:
+        await message.reply("Usage: /wiki <article name>")
+        return
+
+    MG_URL = "https://marginalias.net"
+    MG_KEY = "sk-fs2-5cMnerTFUTuijez8YjQp8O1QnoDk4z2BfW8uLpyO3rlQ"
+    AUTH_HEADER = {"Authorization": f"Bearer {MG_KEY}"}
+
+    await message.reply(f"Ищу статью: {query}...")
+
+    async with aiohttp.ClientSession() as http:
+        # 1. Search Wikipedia for the article (try Russian first, then English)
+        wiki_lang = "ru"
+        api_url = (
+            f"https://{wiki_lang}.wikipedia.org/api/rest_v1/page/summary/"
+            + quote(query, safe="")
+        )
+        async with http.get(api_url) as resp:
+            if resp.status != 200:
+                wiki_lang = "en"
+                api_url = (
+                    f"https://{wiki_lang}.wikipedia.org/api/rest_v1/page/summary/"
+                    + quote(query, safe="")
+                )
+                async with http.get(api_url) as resp2:
+                    if resp2.status != 200:
+                        await message.reply(f"Статья «{query}» не найдена в Wikipedia.")
+                        return
+                    summary_data = await resp2.json()
+            else:
+                summary_data = await resp.json()
+
+        title = summary_data.get("title", query)
+        page_url = summary_data.get("content_urls", {}).get("desktop", {}).get("page", "")
+
+        # 2. Get full article HTML and convert to markdown-like text
+        html_url = (
+            f"https://{wiki_lang}.wikipedia.org/api/rest_v1/page/html/"
+            + quote(title, safe="")
+        )
+        async with http.get(html_url) as resp:
+            if resp.status == 200:
+                html_content = await resp.text()
+            else:
+                html_content = ""
+
+        # Simple HTML to text conversion (strip tags, keep structure)
+        import html as html_module
+
+        def html_to_markdown(raw_html: str) -> str:
+            """Rough HTML→Markdown: headers, paragraphs, lists."""
+            text = raw_html
+            # Remove script/style
+            text = re.sub(r"<(script|style)[^>]*>.*?</\1>", "", text, flags=re.DOTALL | re.IGNORECASE)
+            # Headers
+            for i in range(1, 7):
+                text = re.sub(rf"<h{i}[^>]*>(.*?)</h{i}>", rf"\n{'#' * i} \1\n", text, flags=re.DOTALL | re.IGNORECASE)
+            # List items
+            text = re.sub(r"<li[^>]*>(.*?)</li>", r"\n- \1", text, flags=re.DOTALL | re.IGNORECASE)
+            # Paragraphs / line breaks
+            text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+            text = re.sub(r"<p[^>]*>", "\n\n", text, flags=re.IGNORECASE)
+            text = re.sub(r"</p>", "", text, flags=re.IGNORECASE)
+            # Bold/italic
+            text = re.sub(r"<b[^>]*>(.*?)</b>", r"**\1**", text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r"<strong[^>]*>(.*?)</strong>", r"**\1**", text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r"<i[^>]*>(.*?)</i>", r"*\1*", text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r"<em[^>]*>(.*?)</em>", r"*\1*", text, flags=re.DOTALL | re.IGNORECASE)
+            # Strip remaining tags
+            text = re.sub(r"<[^>]+>", "", text)
+            # Decode entities
+            text = html_module.unescape(text)
+            # Collapse whitespace
+            text = re.sub(r"\n{3,}", "\n\n", text)
+            return text.strip()
+
+        article_md = html_to_markdown(html_content) if html_content else summary_data.get("extract", "")
+
+        # Build final markdown document
+        now = datetime.now(timezone.utc)
+        doc = (
+            f"# {title}\n\n"
+            f"Source: {page_url}\n"
+            f"Downloaded: {now.strftime('%Y-%m-%d %H:%M UTC')}\n\n"
+            f"---\n\n"
+            f"{article_md}\n"
+        )
+
+        # 3. Save to temp file and upload to marginalias
+        filename = re.sub(r"[^\w\s-]", "", title).strip().replace(" ", "_") + ".md"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
+            f.write(doc)
+            tmp_path = f.name
+
+        try:
+            # Upload file
+            form = aiohttp.FormData()
+            form.add_field(
+                "file",
+                open(tmp_path, "rb"),
+                filename=filename,
+                content_type="text/markdown",
+            )
+            form.add_field("description", f"Wikipedia: {title}")
+
+            async with http.post(f"{MG_URL}/api/files", headers=AUTH_HEADER, data=form) as resp:
+                if resp.status not in (200, 201):
+                    err = await resp.text()
+                    await message.reply(f"Ошибка загрузки на marginalias: {err}")
+                    return
+                file_data = await resp.json()
+
+            file_id = file_data["id"]
+
+            # 4. Create/find tags and apply them
+            # Get all existing tags
+            async with http.get(f"{MG_URL}/api/tags", headers=AUTH_HEADER) as resp:
+                all_tags = await resp.json()
+
+            tag_map = {t["name"]: t["id"] for t in all_tags}
+
+            date_tag_name = f"d_{now.strftime('%Y%m%d%H%M')}"
+            wiki_tag_name = "wiki"
+            needed_tags = [date_tag_name, wiki_tag_name]
+            tag_ids = []
+
+            for tag_name in needed_tags:
+                if tag_name in tag_map:
+                    tag_ids.append(tag_map[tag_name])
+                else:
+                    # Create tag
+                    async with http.post(
+                        f"{MG_URL}/api/tags",
+                        headers={**AUTH_HEADER, "Content-Type": "application/json"},
+                        json={"name": tag_name},
+                    ) as resp:
+                        if resp.status in (200, 201):
+                            new_tag = await resp.json()
+                            tag_ids.append(new_tag["id"])
+
+            # Apply tags to file
+            if tag_ids:
+                async with http.post(
+                    f"{MG_URL}/api/files/{file_id}/tags",
+                    headers={**AUTH_HEADER, "Content-Type": "application/json"},
+                    json={"tag_ids": tag_ids},
+                ) as resp:
+                    pass  # best effort
+
+            await message.reply(
+                f"Сохранено: <b>{title}</b>\n"
+                f"Файл: {MG_URL}/api/files/{file_id}/download\n"
+                f"Теги: {', '.join(f'#{t}' for t in needed_tags)}",
+                parse_mode=ParseMode.HTML,
+            )
+        finally:
+            os.unlink(tmp_path)
 
 
 @router.message(Command("protos"))
