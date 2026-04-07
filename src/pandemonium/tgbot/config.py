@@ -69,6 +69,10 @@ class TokenBudgetConfig(BaseModel):
     per_request_limit: int = 0
 
 
+class SessionConfig(BaseModel):
+    max_requests_per_session: int = 50  # auto-clear session after N requests
+
+
 class TimeoutsConfig(BaseModel):
     request_max_seconds: int = 1800  # 30 minutes
 
@@ -79,6 +83,7 @@ class AppConfig(BaseModel):
     projects: list[ProjectConfig]
     storage: StorageConfig = StorageConfig()
     token_budget: TokenBudgetConfig = TokenBudgetConfig()
+    session: SessionConfig = SessionConfig()
     timeouts: TimeoutsConfig = TimeoutsConfig()
 
     @property

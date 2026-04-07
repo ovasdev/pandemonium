@@ -73,6 +73,7 @@ async def cmd_help(message: Message) -> None:
         "/clear — reset conversation context\n"
         "/reload — reload config without restart\n"
         "/reboot — restart the bot\n"
+        "/find — search files in filestorage2\n"
         "/qrand [NdX] — quantum random dice\n"
         "/protos &lt;text&gt; — send prompt (works in groups)"
     )
@@ -316,7 +317,12 @@ async def handle_reply_message(
     if _is_group_chat(message) and not _is_bot_mentioned(message, bot_username):
         return
 
-    prompt = _build_reply_context(message)
+    # When resuming a Claude session, the conversation history is already
+    # in the session context — skip reply chain to avoid duplication.
+    if session_manager.claude_session_id:
+        prompt = message.text or ""
+    else:
+        prompt = _build_reply_context(message)
     prompt = _strip_mention(prompt, bot_username)
     await _start_text_request(message, config, session_manager, prompt)
 
@@ -581,6 +587,334 @@ async def cmd_qrand(message: Message) -> None:
             f"{header} → {', '.join(numbers)}\nСумма: <b>{total}</b>",
             parse_mode=ParseMode.HTML,
         )
+
+
+# ---------------------------------------------------------------------------
+# /find — search files in filestorage2
+# ---------------------------------------------------------------------------
+
+_FS2_BASE = "http://192.168.1.105:4733"
+
+
+def _parse_find_query(raw: str) -> dict:
+    """Parse /find query into structured filters.
+
+    Format (all parts optional, at least one required):
+        #tag1 #tag2
+        collections: col1, col2
+        not: #nottag1 #nottag2
+        collections: notcol1, notcol2
+        title: part of the title
+        artefact: name
+        count: 5
+    """
+    result: dict = {
+        "tags": [],
+        "collections": [],
+        "not_tags": [],
+        "not_collections": [],
+        "title": None,
+        "artefact": None,
+        "count": 5,
+    }
+
+    lines = raw.strip().splitlines()
+    in_not = False
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # count: N
+        m = re.match(r"^count:\s*(\d+)", stripped, re.IGNORECASE)
+        if m:
+            result["count"] = max(1, min(int(m.group(1)), 50))
+            continue
+
+        # title: ...
+        m = re.match(r"^title:\s*(.+)", stripped, re.IGNORECASE)
+        if m:
+            result["title"] = m.group(1).strip()
+            continue
+
+        # artefact: ... (also artifact)
+        m = re.match(r"^arte?fact:\s*(.+)", stripped, re.IGNORECASE)
+        if m:
+            result["artefact"] = m.group(1).strip()
+            continue
+
+        # not: ... (may contain tags inline)
+        m = re.match(r"^not:\s*(.*)", stripped, re.IGNORECASE)
+        if m:
+            in_not = True
+            rest = m.group(1).strip()
+            if rest:
+                not_tags = re.findall(r"#([\w/\-]+)", rest)
+                result["not_tags"].extend(not_tags)
+            continue
+
+        # collections: ...
+        m = re.match(r"^collections?:\s*(.+)", stripped, re.IGNORECASE)
+        if m:
+            cols = [c.strip() for c in m.group(1).split(",") if c.strip()]
+            if in_not:
+                result["not_collections"].extend(cols)
+            else:
+                result["collections"].extend(cols)
+            continue
+
+        # Standalone tags (#tag1 #tag2 ...)
+        tags_found = re.findall(r"#([\w/\-]+)", stripped)
+        if tags_found:
+            if in_not:
+                result["not_tags"].extend(tags_found)
+            else:
+                result["tags"].extend(tags_found)
+            continue
+
+    return result
+
+
+def _format_file_card(file_data: dict) -> str:
+    """Format a file as an HTML card for Telegram."""
+    fid = file_data.get("id", "?")
+    name = file_data.get("original_filename", "?")
+    desc = file_data.get("description") or ""
+    mime = file_data.get("mime_type", "")
+    size = file_data.get("size", 0)
+    created = file_data.get("created_at", "")[:10]
+
+    tags = file_data.get("tags") or []
+    tag_names = [f"#{t['name']}" for t in tags]
+    collections = file_data.get("collections") or []
+    col_names = [c["name"] for c in collections]
+
+    # Icon by mime
+    if mime.startswith("image/"):
+        icon = "🖼"
+    elif mime.startswith("audio/"):
+        icon = "🎵"
+    elif mime.startswith("video/"):
+        icon = "🎬"
+    elif "pdf" in mime:
+        icon = "📕"
+    else:
+        icon = "📄"
+
+    # Size formatting
+    if size >= 1_048_576:
+        size_str = f"{size / 1_048_576:.1f} MB"
+    elif size >= 1024:
+        size_str = f"{size / 1024:.1f} KB"
+    else:
+        size_str = f"{size} B"
+
+    lines = [f"{icon} <b>{name}</b>"]
+    if desc:
+        lines.append(desc[:200])
+    if tag_names:
+        lines.append(f"Теги: {' '.join(tag_names)}")
+    if col_names:
+        lines.append(f"Коллекции: {', '.join(col_names)}")
+    lines.append(f"{size_str} · {created} · <code>id:{fid}</code>")
+
+    return "\n".join(lines)
+
+
+@router.message(Command("find"))
+async def cmd_find(message: Message) -> None:
+    """Handle /find — search files in filestorage2 on Raspberry Pi."""
+    import aiohttp
+
+    raw = (message.text or "").split(maxsplit=1)[1] if (message.text or "").strip().count(" ") >= 1 else ""
+    if not raw.strip():
+        await message.reply(
+            "<b>Usage:</b>\n"
+            "<code>/find #tag1 #tag2\n"
+            "collections: col1, col2\n"
+            "not: #excl_tag\n"
+            "collections: excl_col\n"
+            "title: search text\n"
+            "count: 5</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    query = _parse_find_query(raw)
+
+    # Check that at least one filter is set
+    has_filter = (
+        query["tags"]
+        or query["collections"]
+        or query["title"]
+        or query["artefact"]
+    )
+    if not has_filter:
+        await message.reply("Нужен хотя бы один фильтр: теги, коллекции, title или artefact.")
+        return
+
+    api_key = os.environ.get("RASPBERY_FILESTORAGE_KEY", "")
+    if not api_key:
+        await message.reply("RASPBERY_FILESTORAGE_KEY не настроен.")
+        return
+
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as http:
+            # Resolve tag names → IDs
+            tag_id_map: dict[str, int] = {}
+            if query["tags"] or query["not_tags"]:
+                async with http.get(f"{_FS2_BASE}/api/tags", headers=headers) as resp:
+                    if resp.status == 200:
+                        all_tags = await resp.json()
+                        tag_id_map = {t["name"]: t["id"] for t in all_tags}
+
+            # Resolve collection names → IDs
+            col_id_map: dict[str, int] = {}
+            if query["collections"] or query["not_collections"]:
+                async with http.get(f"{_FS2_BASE}/api/collections", headers=headers) as resp:
+                    if resp.status == 200:
+                        all_cols = await resp.json()
+                        col_id_map = {c["name"]: c["id"] for c in all_cols}
+
+            # Build query params for /api/files
+            params: dict[str, str] = {"sort": "created_at:desc"}
+
+            # Include tags (intersection)
+            include_tag_ids = []
+            for t in query["tags"]:
+                tid = tag_id_map.get(t)
+                if tid is None:
+                    await message.reply(f"Тег <code>#{t}</code> не найден.", parse_mode=ParseMode.HTML)
+                    return
+                include_tag_ids.append(tid)
+            if include_tag_ids:
+                params["tag_ids"] = ",".join(str(i) for i in include_tag_ids)
+
+            # Include collections (union)
+            include_col_ids = []
+            for c in query["collections"]:
+                cid = col_id_map.get(c)
+                if cid is None:
+                    await message.reply(f"Коллекция <code>{c}</code> не найдена.", parse_mode=ParseMode.HTML)
+                    return
+                include_col_ids.append(cid)
+            if include_col_ids:
+                params["collection_ids"] = ",".join(str(i) for i in include_col_ids)
+
+            # Exclude tags/collections — resolve IDs for client-side filtering
+            exclude_tag_ids = set()
+            for t in query["not_tags"]:
+                tid = tag_id_map.get(t)
+                if tid is not None:
+                    exclude_tag_ids.add(tid)
+
+            exclude_col_ids = set()
+            for c in query["not_collections"]:
+                cid = col_id_map.get(c)
+                if cid is not None:
+                    exclude_col_ids.add(cid)
+
+            # If title or artefact search — use /api/files/search
+            if query["title"] or query["artefact"]:
+                search_q = query["title"] or query["artefact"] or ""
+                search_params = {"q": search_q, "limit": "50", "offset": "0"}
+                async with http.get(
+                    f"{_FS2_BASE}/api/files/search", headers=headers, params=search_params,
+                ) as resp:
+                    if resp.status != 200:
+                        await message.reply(f"Ошибка поиска: {resp.status}")
+                        return
+                    search_results = await resp.json()
+
+                # search_results may be a list or {"files": [...]}
+                if isinstance(search_results, dict):
+                    files = search_results.get("files") or search_results.get("data") or []
+                else:
+                    files = search_results
+
+                # Apply tag/collection filters client-side on search results
+                if include_tag_ids:
+                    files = [
+                        f for f in files
+                        if all(
+                            tid in {t["id"] for t in (f.get("tags") or [])}
+                            for tid in include_tag_ids
+                        )
+                    ]
+                if include_col_ids:
+                    files = [
+                        f for f in files
+                        if any(
+                            cid in {c["id"] for c in (f.get("collections") or [])}
+                            for cid in include_col_ids
+                        )
+                    ]
+            else:
+                # Pure tag/collection filter via API
+                async with http.get(
+                    f"{_FS2_BASE}/api/files", headers=headers, params=params,
+                ) as resp:
+                    if resp.status != 200:
+                        await message.reply(f"Ошибка запроса: {resp.status}")
+                        return
+                    api_result = await resp.json()
+
+                if isinstance(api_result, dict):
+                    files = api_result.get("files") or api_result.get("data") or []
+                else:
+                    files = api_result
+
+            # Client-side exclusion filters
+            if exclude_tag_ids:
+                files = [
+                    f for f in files
+                    if not exclude_tag_ids.intersection(
+                        {t["id"] for t in (f.get("tags") or [])}
+                    )
+                ]
+            if exclude_col_ids:
+                files = [
+                    f for f in files
+                    if not exclude_col_ids.intersection(
+                        {c["id"] for c in (f.get("collections") or [])}
+                    )
+                ]
+
+            # Apply title filter as substring match if combined with tags
+            if query["title"] and (include_tag_ids or include_col_ids):
+                needle = query["title"].lower()
+                files = [
+                    f for f in files
+                    if needle in (f.get("original_filename") or "").lower()
+                    or needle in (f.get("description") or "").lower()
+                ]
+
+            total_found = len(files)
+            count = query["count"]
+            display_files = files[:count]
+
+            if not display_files:
+                await message.reply("Ничего не найдено.")
+                return
+
+            # Send each file as a separate card
+            for f in display_files:
+                card = _format_file_card(f)
+                await message.answer(card, parse_mode=ParseMode.HTML)
+
+            if total_found > count:
+                await message.answer(
+                    f"Найдено файлов: <b>{total_found}</b> (показано {count})",
+                    parse_mode=ParseMode.HTML,
+                )
+
+    except asyncio.TimeoutError:
+        await message.reply("Filestorage2 на малинке недоступен (таймаут).")
+    except aiohttp.ClientConnectorError:
+        await message.reply("Filestorage2 на малинке недоступен (connection refused).")
 
 
 @router.message(Command("wiki"))

@@ -185,20 +185,61 @@ curl -s -X POST "$BASE_URL/api/collections/{id}/files" \
 ## Sharing (v2)
 
 ```bash
-# Create share rule
+# Create share rule — authenticated (all logged-in users)
 curl -s -X POST "$BASE_URL/api/sharing" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"resource_type":"file","file_group_id":"<UUID>","visibility":"authenticated"}'
 
-# List share rules
+# Create share rule — specific user (by user UUID)
+curl -s -X POST "$BASE_URL/api/sharing" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"resource_type":"file","file_group_id":"<UUID>","visibility":"user","target_user_uuid":"<USER_UUID>"}'
+
+# Create share rule — collection to specific user
+curl -s -X POST "$BASE_URL/api/sharing" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"resource_type":"collection","collection_uuid":"<UUID>","visibility":"user","target_user_uuid":"<USER_UUID>"}'
+
+# Create share rule — link-only with optional password & expiry
+curl -s -X POST "$BASE_URL/api/sharing" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"resource_type":"file","file_group_id":"<UUID>","visibility":"link_only","password":"secret","expires_at":"2026-12-31T23:59:59Z","max_downloads":10}'
+
+# List share rules (optionally filter by resource_type, file_group_id, tag_uuid, collection_uuid)
 curl -s "$BASE_URL/api/sharing" -H "Authorization: Bearer $API_KEY"
+curl -s "$BASE_URL/api/sharing?resource_type=file&file_group_id=<UUID>" -H "Authorization: Bearer $API_KEY"
 
 # Delete share rule
-curl -s -X DELETE "$BASE_URL/api/sharing/{id}" -H "Authorization: Bearer $API_KEY"
+curl -s -X DELETE "$BASE_URL/api/sharing/{uuid}" -H "Authorization: Bearer $API_KEY"
 ```
 
-Visibility: `authenticated`, `public`, `link_only`.
+### Visibility levels
+
+| Visibility | Description | Required fields |
+|---|---|---|
+| `public` | Доступен всем без авторизации | — |
+| `authenticated` | Доступен всем залогиненным пользователям | — |
+| `user` | Доступен конкретному пользователю | `target_user_uuid` |
+| `link_only` | Доступен только по прямой ссылке (+ опц. пароль) | — |
+
+### Optional fields for create
+
+| Field | Type | Description |
+|---|---|---|
+| `target_user_uuid` | string (UUID) | UUID пользователя-получателя (для `visibility: "user"`) |
+| `password` | string | Пароль для доступа (для `link_only`) |
+| `expires_at` | ISO 8601 datetime | Срок действия правила |
+| `max_downloads` | integer | Лимит скачиваний |
+
+### Response fields
+
+В ответе `target_user_uuid` и `target_user_name` присутствуют, если правило адресное (`visibility: "user"`).
+`has_password: true` — если задан пароль. Сам пароль не возвращается.
+
 Resource types: `file`, `tag`, `collection`.
 
 ## Health

@@ -51,6 +51,9 @@ class SessionManager:
         # Resume ID for the *next* Claude Code request (set after init event).
         # Cleared on project/persona switch to force fresh context.
         self._next_resume_id: str | None = None
+        # How many requests have been made on the current session.
+        # When this reaches max_requests_per_session, session is auto-cleared.
+        self._session_request_count: int = 0
         # Active project and persona (persist across requests)
         self._active_project_id: str = config.default_project.id
         self._active_persona: str | None = None
@@ -88,17 +91,20 @@ class SessionManager:
         self._active_project_id = project_id
         self._active_persona = None
         self._next_resume_id = None
+        self._session_request_count = 0
         logger.info("Switched active project to %s (%s)", project_id, project.path)
 
     def set_active_persona(self, persona: str | None) -> None:
         """Set the active persona name. Only for default project. Clears session."""
         self._active_persona = persona
         self._next_resume_id = None
+        self._session_request_count = 0
         logger.info("Active persona: %s (session cleared)", persona or "(none)")
 
     def clear_session(self) -> None:
         """Clear the Claude Code session ID, starting a fresh conversation next time."""
         self._next_resume_id = None
+        self._session_request_count = 0
         logger.info("Claude session cleared")
 
     async def create_request(
@@ -321,6 +327,16 @@ class SessionManager:
             # External projects use their own CLAUDE.md — we don't inject anything.
             persona_prompt = self._build_persona_prompt() if is_default_project else None
 
+            # Auto-clear session when request limit is reached.
+            max_rps = self._config.session.max_requests_per_session
+            if max_rps > 0 and self._session_request_count >= max_rps:
+                logger.info(
+                    "Session request limit reached (%d/%d), starting fresh session",
+                    self._session_request_count, max_rps,
+                )
+                self._next_resume_id = None
+                self._session_request_count = 0
+
             # Snapshot resume ID before starting (prevents race with init event).
             resume_id = self._next_resume_id
 
@@ -349,7 +365,13 @@ class SessionManager:
                     match event:
                         case SystemEvent(subtype="init", session_id=sid) if sid:
                             self._next_resume_id = sid
-                            logger.info("Claude session ID: %s", sid)
+                            self._session_request_count += 1
+                            logger.info(
+                                "Claude session ID: %s (request %d/%d)",
+                                sid,
+                                self._session_request_count,
+                                self._config.session.max_requests_per_session,
+                            )
 
                         case AssistantEvent(text=text, usage=usage):
                             await buffer.append(text)
