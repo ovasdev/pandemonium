@@ -162,13 +162,13 @@ class SessionManager:
         )
         return req_number
 
-    async def cancel_request(self, request_id: int) -> None:
-        """Cancel the active request."""
+    async def cancel_request(self, request_id: int) -> bool:
+        """Cancel the active request. Returns True if actually cancelled."""
         session = self._active
         if not session or session.request_id != request_id:
-            return
+            return False
         if session.state not in (SessionState.RUNNING, SessionState.AWAITING_INPUT):
-            return
+            return False
 
         session.state = SessionState.CANCELLED
         if session.pending_response and not session.pending_response.done():
@@ -176,6 +176,7 @@ class SessionManager:
         await session.claude_process.cancel()
         await db.update_request_status(self._db, request_id, "cancelled")
         logger.info("Request %s cancelled", request_id)
+        return True
 
     async def handle_permission_response(
         self, request_id: int, allowed: bool,
@@ -551,19 +552,6 @@ class SessionManager:
             ),
         ]])
 
-    async def _remove_all_cancel_buttons(self, session: ActiveSession) -> None:
-        """Remove Cancel keyboard from all tracked messages."""
-        for msg_id in session.cancel_message_ids:
-            try:
-                await self._bot.edit_message_reply_markup(
-                    chat_id=session.chat_id,
-                    message_id=msg_id,
-                    reply_markup=None,
-                )
-            except Exception:
-                pass
-        session.cancel_message_ids.clear()
-
     async def _send_chunk(self, session: ActiveSession, text: str) -> None:
         """Send a text chunk as a Telegram message with HTML formatting."""
         html = truncate_html(md_to_telegram_html(text))
@@ -586,7 +574,7 @@ class SessionManager:
                 reply_markup=cancel_kb,
             ))
         if msg:
-            session.cancel_message_ids.append(msg.message_id)
+            session.last_cancel_message_id = msg.message_id
 
     async def _handle_result(self, session: ActiveSession, text: str, usage) -> None:
         """Process a successful result event."""
@@ -640,8 +628,17 @@ class SessionManager:
             except asyncio.CancelledError:
                 pass
 
-        # Remove Cancel buttons from all chunk messages
-        await self._remove_all_cancel_buttons(session)
+        # Remove Cancel button from the last chunk message
+        if session.last_cancel_message_id:
+            try:
+                await self._bot.edit_message_reply_markup(
+                    chat_id=session.chat_id,
+                    message_id=session.last_cancel_message_id,
+                    reply_markup=None,
+                )
+            except Exception:
+                pass
+            session.last_cancel_message_id = None
 
         tokens_row = await db.get_token_totals(self._db, session.project_id)
         meta = {
