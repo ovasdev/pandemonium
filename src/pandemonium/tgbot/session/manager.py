@@ -542,24 +542,52 @@ class SessionManager:
         finally:
             session.pending_response = None
 
+    def _cancel_markup(self, session: ActiveSession) -> InlineKeyboardMarkup:
+        """Build an inline keyboard with a Cancel button for the active request."""
+        return InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text="Cancel",
+                callback_data=f"cancel:{session.request_id}",
+            ),
+        ]])
+
+    async def _move_cancel_button(self, session: ActiveSession, new_message_id: int) -> None:
+        """Remove Cancel from the previous message and track the new one."""
+        old_id = session.last_cancel_message_id
+        session.last_cancel_message_id = new_message_id
+        if old_id and old_id != new_message_id:
+            try:
+                await self._bot.edit_message_reply_markup(
+                    chat_id=session.chat_id,
+                    message_id=old_id,
+                    reply_markup=None,
+                )
+            except Exception:
+                pass  # message may have been deleted or already edited
+
     async def _send_chunk(self, session: ActiveSession, text: str) -> None:
         """Send a text chunk as a Telegram message with HTML formatting."""
         html = truncate_html(md_to_telegram_html(text))
+        cancel_kb = self._cancel_markup(session)
         try:
-            await telegram_retry(lambda: self._bot.send_message(
+            msg = await telegram_retry(lambda: self._bot.send_message(
                 chat_id=session.chat_id,
                 text=html,
                 parse_mode=ParseMode.HTML,
                 reply_to_message_id=session.user_message_id,
+                reply_markup=cancel_kb,
             ))
         except Exception:
             # Fallback to plain text if HTML parsing fails
             truncated = text[:4000] if len(text) > 4000 else text
-            await telegram_retry(lambda: self._bot.send_message(
+            msg = await telegram_retry(lambda: self._bot.send_message(
                 chat_id=session.chat_id,
                 text=truncated,
                 reply_to_message_id=session.user_message_id,
+                reply_markup=cancel_kb,
             ))
+        if msg:
+            await self._move_cancel_button(session, msg.message_id)
 
     async def _handle_result(self, session: ActiveSession, text: str, usage) -> None:
         """Process a successful result event."""
@@ -612,6 +640,18 @@ class SessionManager:
                 await session.typing_task
             except asyncio.CancelledError:
                 pass
+
+        # Remove Cancel button from the last chunk message
+        if session.last_cancel_message_id:
+            try:
+                await self._bot.edit_message_reply_markup(
+                    chat_id=session.chat_id,
+                    message_id=session.last_cancel_message_id,
+                    reply_markup=None,
+                )
+            except Exception:
+                pass
+            session.last_cancel_message_id = None
 
         tokens_row = await db.get_token_totals(self._db, session.project_id)
         meta = {
