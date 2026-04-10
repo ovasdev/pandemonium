@@ -551,19 +551,18 @@ class SessionManager:
             ),
         ]])
 
-    async def _move_cancel_button(self, session: ActiveSession, new_message_id: int) -> None:
-        """Remove Cancel from the previous message and track the new one."""
-        old_id = session.last_cancel_message_id
-        session.last_cancel_message_id = new_message_id
-        if old_id and old_id != new_message_id:
+    async def _remove_all_cancel_buttons(self, session: ActiveSession) -> None:
+        """Remove Cancel keyboard from all tracked messages."""
+        for msg_id in session.cancel_message_ids:
             try:
                 await self._bot.edit_message_reply_markup(
                     chat_id=session.chat_id,
-                    message_id=old_id,
+                    message_id=msg_id,
                     reply_markup=None,
                 )
             except Exception:
-                pass  # message may have been deleted or already edited
+                pass
+        session.cancel_message_ids.clear()
 
     async def _send_chunk(self, session: ActiveSession, text: str) -> None:
         """Send a text chunk as a Telegram message with HTML formatting."""
@@ -587,7 +586,7 @@ class SessionManager:
                 reply_markup=cancel_kb,
             ))
         if msg:
-            await self._move_cancel_button(session, msg.message_id)
+            session.cancel_message_ids.append(msg.message_id)
 
     async def _handle_result(self, session: ActiveSession, text: str, usage) -> None:
         """Process a successful result event."""
@@ -641,17 +640,8 @@ class SessionManager:
             except asyncio.CancelledError:
                 pass
 
-        # Remove Cancel button from the last chunk message
-        if session.last_cancel_message_id:
-            try:
-                await self._bot.edit_message_reply_markup(
-                    chat_id=session.chat_id,
-                    message_id=session.last_cancel_message_id,
-                    reply_markup=None,
-                )
-            except Exception:
-                pass
-            session.last_cancel_message_id = None
+        # Remove Cancel buttons from all chunk messages
+        await self._remove_all_cancel_buttons(session)
 
         tokens_row = await db.get_token_totals(self._db, session.project_id)
         meta = {

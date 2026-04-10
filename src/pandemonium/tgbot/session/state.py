@@ -32,4 +32,4 @@ class ActiveSession:
     active_persona: str | None = None
     sub_counter: int = field(default=0)
     pending_response: asyncio.Future | None = field(default=None, repr=False)
-    last_cancel_message_id: int | None = field(default=None)
+    cancel_message_ids: list[int] = field(default_factory=list)
