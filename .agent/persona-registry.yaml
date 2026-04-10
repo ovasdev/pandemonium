@@ -140,6 +140,29 @@ karl-marx:
     - исторический материализм
     - товарный фетишизм
 
+nikolai-amosov:
+  project: pandemonium-bot
+  path: /mnt/b/projects/pandemonium-bot
+  soul: amosov
+  triggers:
+    - амосов
+    - amosov
+    - кардиохирург
+    - медицина
+    - диагноз
+    - симптомы
+    - лечение
+    - болезнь
+    - здоровье
+    - профилактика
+    - здоровый образ жизни
+    - сердце
+    - операция на сердце
+    - клапан
+    - шунтирование
+    - нагрузки
+    - закаливание
+
 socrates:
   project: pandemonium-bot
   path: /mnt/b/projects/pandemonium-bot
@@ -160,3 +183,19 @@ socrates:
     - определение
     - логика
     - противоречие
+
+art-critic:
+  project: latvian-artist
+  path: /mnt/b/projects/latvian-artist
+  soul: null
+  triggers:
+    - критика
+    - искусство
+    - картина
+    - выставка
+    - анализ работы
+    - арт
+    - живопись
+    - art
+    - painting
+    - exhibition
