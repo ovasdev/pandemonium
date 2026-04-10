@@ -472,16 +472,24 @@ class SessionManager:
             text=html_content,
             parse_mode=ParseMode.HTML,
             reply_to_message_id=session.user_message_id,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(
-                    text="Allow",
-                    callback_data=f"perm:{session.request_id}:allow",
-                ),
-                InlineKeyboardButton(
-                    text="Deny",
-                    callback_data=f"perm:{session.request_id}:deny",
-                ),
-            ]]),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="Allow",
+                        callback_data=f"perm:{session.request_id}:allow",
+                    ),
+                    InlineKeyboardButton(
+                        text="Deny",
+                        callback_data=f"perm:{session.request_id}:deny",
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="Cancel",
+                        callback_data=f"cancel:{session.request_id}",
+                    ),
+                ],
+            ]),
         )
         await db.create_interaction(
             self._db, session.request_id, session.sub_counter,
@@ -513,6 +521,12 @@ class SessionManager:
             chat_id=session.chat_id,
             text=question,
             reply_to_message_id=session.user_message_id,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text="Cancel",
+                    callback_data=f"cancel:{session.request_id}",
+                ),
+            ]]),
         )
         await db.create_interaction(
             self._db, session.request_id, session.sub_counter,

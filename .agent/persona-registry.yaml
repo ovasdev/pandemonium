@@ -79,123 +79,244 @@ qrandbot-developer:
     - d20
     - random
 
-albert-ellis:
-  project: pandemonium-bot
-  path: /mnt/b/projects/pandemonium-bot
-  soul: ellis
-  triggers:
-    - эллис
-    - ellis
-    - рэпт
-    - rebt
-    - рационально-эмотивная
-    - иррациональные убеждения
-    - долженствования
-    - abc-модель
-    - диспутирование
-    - когнитивные искажения
-    - катастрофизация
-    - самопринятие
-    - толерантность к фрустрации
-
-irvin-yalom:
-  project: pandemonium-bot
-  path: /mnt/b/projects/pandemonium-bot
-  soul: yalom
-  triggers:
-    - ялом
-    - yalom
-    - экзистенциальная
-    - экзистенциализм
-    - смысл жизни
-    - страх смерти
-    - конечность
-    - одиночество
-    - бессмысленность
-    - здесь и сейчас
-    - групповая терапия
-    - пробуждающий опыт
-    - подлинность
-    - данности существования
-
-karl-marx:
-  project: pandemonium-bot
-  path: /mnt/b/projects/pandemonium-bot
-  soul: marx
-  triggers:
-    - маркс
-    - marx
-    - капитализм
-    - социализм
-    - коммунизм
-    - классовая борьба
-    - эксплуатация
-    - отчуждение
-    - политэкономия
-    - капитал
-    - прибавочная стоимость
-    - пролетариат
-    - буржуазия
-    - диалектика
-    - исторический материализм
-    - товарный фетишизм
-
-nikolai-amosov:
-  project: pandemonium-bot
-  path: /mnt/b/projects/pandemonium-bot
-  soul: amosov
-  triggers:
-    - амосов
-    - amosov
-    - кардиохирург
-    - медицина
-    - диагноз
-    - симптомы
-    - лечение
-    - болезнь
-    - здоровье
-    - профилактика
-    - здоровый образ жизни
-    - сердце
-    - операция на сердце
-    - клапан
-    - шунтирование
-    - нагрузки
-    - закаливание
-
-socrates:
-  project: pandemonium-bot
-  path: /mnt/b/projects/pandemonium-bot
-  soul: socrates
-  triggers:
-    - сократ
-    - socrates
-    - майевтика
-    - пресуппозиция
-    - скрытое допущение
-    - предпосылка
-    - эленхос
-    - апория
-    - что ты допускаешь
-    - разбери аргумент
-    - проверь рассуждение
-    - что ты имеешь в виду
-    - определение
-    - логика
-    - противоречие
-
-art-critic:
-  project: latvian-artist
-  path: /mnt/b/projects/latvian-artist
+# Helpy personas
+helpy-developer:
+  project: helpy
+  path: E:/Projects/helpy-master
   soul: null
   triggers:
-    - критика
-    - искусство
-    - картина
-    - выставка
-    - анализ работы
-    - арт
-    - живопись
-    - art
-    - painting
-    - exhibition
+    - сделай
+    - напиши код
+    - реализуй
+    - добавь фичу
+    - пофикси
+    - исправь
+    - поменяй
+    - переделай
+    - допиши
+    - создай сервис
+
+helpy-frontend:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - экран
+    - компонент
+    - стиль
+    - анимация
+    - верстка
+    - как сверстать
+    - сверстай
+    - отрисуй
+
+helpy-qa:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - напиши тесты
+    - запусти тесты
+    - проверь тесты
+    - тестирование
+    - покрытие
+    - прогони тесты
+    - тест на
+    - проверь что не сломалось
+
+helpy-designer:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - дизайн
+    - цвет
+    - иконка
+    - визуал
+    - нарисуй
+    - как должно выглядеть
+    - палитра
+    - градиент
+    - стиль приложения
+
+helpy-ux:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - юзабилити
+    - отступы
+    - раскладка
+    - пользовательский опыт
+    - как расположить
+    - удобно ли
+    - пользователю будет
+
+helpy-po:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - приоритеты
+    - что дальше
+    - план спринта
+    - бэклог
+    - что важнее
+    - куда двигаемся
+    - релиз
+
+helpy-infra:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - билд
+    - сборка
+    - эмулятор
+    - краш
+    - собери
+    - пересобери
+    - поставь
+    - установи
+    - запусти маестро
+    - апк
+    - подпись
+
+helpy-security:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - безопасность
+    - аудит
+    - уязвимости
+    - проверь зависимости
+    - приватность
+    - безопасно ли
+    - утечка
+    - хранение данных
+
+helpy-mental-health:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - клиническая валидность
+    - ментальное здоровье
+    - травма
+    - стигма
+    - корректность терминов
+    - КПТ
+    - ДБТ
+    - АСТ
+    - психиатрия
+    - психотерапия
+    - не навредит ли
+    - корректно ли
+    - формулировка
+
+helpy-a11y:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - доступность
+    - контраст
+    - слепые
+    - моторика
+    - слабовидящие
+    - размер текста
+    - читаемость
+    - тач-таргет
+
+helpy-math:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - статистика
+    - корреляция
+    - формула
+    - проверь математику
+    - правильно ли считается
+    - точность
+    - выборка
+
+helpy-neurologist:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - боль
+    - мигрень
+    - головная боль
+    - аура
+    - невролог
+    - алголог
+    - невралгия
+    - фибромиалгия
+
+helpy-debate:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - обсудить
+    - дебаты
+    - мнение команды
+    - что думает команда
+    - давайте обсудим
+    - давайте подумаем
+    - спорный вопрос
+    - за и против
+
+helpy-ba:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - юзер стори
+    - юзкейс
+    - критерии приёмки
+    - требования
+    - задокументируй
+    - опиши фичу
+    - напиши требования
+
+helpy-code-review:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - посмотри код
+    - ревью
+    - проверь изменения
+    - аудит кода
+    - что не так
+    - что думаешь о коде
+    - оцени код
+    - проверь качество
+
+helpy-gamification:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - геймификация
+    - мотивация
+    - вовлечённость
+    - награды
+    - прогресс
+    - рост
+    - стрики
+    - ачивки
+    - как мотивировать
+
+helpy-pipeline:
+  project: helpy
+  path: E:/Projects/helpy-master
+  soul: null
+  triggers:
+    - полный цикл
+    - от начала до конца
+    - сделай фичу целиком

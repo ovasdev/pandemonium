@@ -6,6 +6,7 @@ import signal
 import sys
 
 from aiogram import Bot, Dispatcher
+from aiogram.types import BotCommand
 
 from pandemonium.tgbot.bot.callbacks import router as callbacks_router
 from pandemonium.tgbot.bot.handlers import router as handlers_router
@@ -73,6 +74,20 @@ async def main() -> None:
     bot_info = await bot.get_me()
     bot_username = bot_info.username or ""
     logger.info("Bot username: @%s", bot_username)
+
+    await bot.set_my_commands([
+        BotCommand(command="start", description="Start the bot"),
+        BotCommand(command="help", description="List available commands"),
+        BotCommand(command="projects", description="Switch active project"),
+        BotCommand(command="personas", description="Switch active persona"),
+        BotCommand(command="status", description="Current request status"),
+        BotCommand(command="history", description="Recent requests"),
+        BotCommand(command="tokens", description="Token usage stats"),
+        BotCommand(command="clear", description="Reset conversation context"),
+        BotCommand(command="reload", description="Reload config without restart"),
+        BotCommand(command="protos", description="Send prompt (works in groups)"),
+    ])
+    logger.info("Bot commands registered.")
 
     session_manager = SessionManager(config, database, storage, bot)
 
