@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import signal
+import sys
 from pathlib import Path
 
 import aiosqlite
@@ -178,15 +179,31 @@ async def cmd_reboot(
     await message.answer("Rebooting...")
     pid = os.getpid()
     # Spawn a fully detached shell that waits for this process to die,
-    # then starts the bot fresh. Using shell + disown to survive parent exit.
-    await asyncio.create_subprocess_shell(
-        f"(while kill -0 {pid} 2>/dev/null; do sleep 0.5; done; "
-        f"cd {bot_root} && bash start.sh) &",
-        start_new_session=True,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
-        stdin=asyncio.subprocess.DEVNULL,
-    )
+    # then starts the bot fresh.
+    if sys.platform == "win32":
+        # On Windows, kill -0 doesn't work; use tasklist to poll the PID.
+        wait_cmd = (
+            f'(for /L %i in (1,1,60) do ('
+            f'tasklist /FI "PID eq {pid}" /NH 2>nul | findstr /C:"{pid}" >nul || ('
+            f'cd /d {bot_root} && bash start.sh && exit /b'
+            f') && timeout /t 1 /nobreak >nul))'
+        )
+        await asyncio.create_subprocess_shell(
+            f"cmd /c start /min cmd /c \"{wait_cmd}\"",
+            start_new_session=True,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+            stdin=asyncio.subprocess.DEVNULL,
+        )
+    else:
+        await asyncio.create_subprocess_shell(
+            f"(while kill -0 {pid} 2>/dev/null; do sleep 0.5; done; "
+            f"cd {bot_root} && bash start.sh) &",
+            start_new_session=True,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+            stdin=asyncio.subprocess.DEVNULL,
+        )
     # Now trigger graceful shutdown
     os.kill(pid, signal.SIGTERM)
 
