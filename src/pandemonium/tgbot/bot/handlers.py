@@ -148,9 +148,11 @@ async def cmd_reload(
         return
 
     session_manager.update_config(new_config)
-    # Update the dispatcher reference via the router's parent
-    message.bot.session  # noqa: just to ensure bot is accessible
-    router.parent_router.workflow_data["config"] = new_config  # type: ignore[union-attr]
+    # Mutate the existing config in-place so concurrent handlers see the change,
+    # then also update the dispatcher reference for future updates.
+    for field_name in config.model_fields:
+        setattr(config, field_name, getattr(new_config, field_name))
+    router.parent_router.workflow_data["config"] = config  # type: ignore[union-attr]
 
     project_names = [p.name for p in new_config.projects]
     await message.answer(
