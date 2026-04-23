@@ -378,6 +378,17 @@ async def handle_document_message(
 
     doc = message.document
     assert doc is not None
+
+    # Telegram cloud API limits file downloads to 20 MB.
+    _TG_FILE_LIMIT = 20 * 1024 * 1024
+    if doc.file_size and doc.file_size > _TG_FILE_LIMIT:
+        size_mb = doc.file_size / (1024 * 1024)
+        await message.reply(
+            f"⚠️ Файл слишком большой ({size_mb:.1f} МБ). "
+            f"Telegram Bot API ограничивает скачивание до 20 МБ."
+        )
+        return
+
     original_name = doc.file_name or "file"
     uploads_dir = config.storage.uploads_path
     local_path = await _download_file(bot, doc.file_id, uploads_dir)
