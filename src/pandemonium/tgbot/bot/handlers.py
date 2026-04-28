@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import signal
+import sys
 from pathlib import Path
 
 import aiosqlite
@@ -147,9 +148,11 @@ async def cmd_reload(
         return
 
     session_manager.update_config(new_config)
-    # Update the dispatcher reference via the router's parent
-    message.bot.session  # noqa: just to ensure bot is accessible
-    router.parent_router.workflow_data["config"] = new_config  # type: ignore[union-attr]
+    # Mutate the existing config in-place so concurrent handlers see the change,
+    # then also update the dispatcher reference for future updates.
+    for field_name in config.model_fields:
+        setattr(config, field_name, getattr(new_config, field_name))
+    router.parent_router.workflow_data["config"] = config  # type: ignore[union-attr]
 
     project_names = [p.name for p in new_config.projects]
     await message.answer(
@@ -178,15 +181,31 @@ async def cmd_reboot(
     await message.answer("Rebooting...")
     pid = os.getpid()
     # Spawn a fully detached shell that waits for this process to die,
-    # then starts the bot fresh. Using shell + disown to survive parent exit.
-    await asyncio.create_subprocess_shell(
-        f"(while kill -0 {pid} 2>/dev/null; do sleep 0.5; done; "
-        f"cd {bot_root} && bash start.sh) &",
-        start_new_session=True,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
-        stdin=asyncio.subprocess.DEVNULL,
-    )
+    # then starts the bot fresh.
+    if sys.platform == "win32":
+        # On Windows, kill -0 doesn't work; use tasklist to poll the PID.
+        wait_cmd = (
+            f'(for /L %i in (1,1,60) do ('
+            f'tasklist /FI "PID eq {pid}" /NH 2>nul | findstr /C:"{pid}" >nul || ('
+            f'cd /d {bot_root} && bash start.sh && exit /b'
+            f') && timeout /t 1 /nobreak >nul))'
+        )
+        await asyncio.create_subprocess_shell(
+            f"cmd /c start /min cmd /c \"{wait_cmd}\"",
+            start_new_session=True,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+            stdin=asyncio.subprocess.DEVNULL,
+        )
+    else:
+        await asyncio.create_subprocess_shell(
+            f"(while kill -0 {pid} 2>/dev/null; do sleep 0.5; done; "
+            f"cd {bot_root} && bash start.sh) &",
+            start_new_session=True,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+            stdin=asyncio.subprocess.DEVNULL,
+        )
     # Now trigger graceful shutdown
     os.kill(pid, signal.SIGTERM)
 
@@ -359,6 +378,17 @@ async def handle_document_message(
 
     doc = message.document
     assert doc is not None
+
+    # Telegram cloud API limits file downloads to 20 MB.
+    _TG_FILE_LIMIT = 20 * 1024 * 1024
+    if doc.file_size and doc.file_size > _TG_FILE_LIMIT:
+        size_mb = doc.file_size / (1024 * 1024)
+        await message.reply(
+            f"⚠️ Файл слишком большой ({size_mb:.1f} МБ). "
+            f"Telegram Bot API ограничивает скачивание до 20 МБ."
+        )
+        return
+
     original_name = doc.file_name or "file"
     uploads_dir = config.storage.uploads_path
     local_path = await _download_file(bot, doc.file_id, uploads_dir)

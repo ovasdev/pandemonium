@@ -162,13 +162,13 @@ class SessionManager:
         )
         return req_number
 
-    async def cancel_request(self, request_id: int) -> None:
-        """Cancel the active request."""
+    async def cancel_request(self, request_id: int) -> bool:
+        """Cancel the active request. Returns True if actually cancelled."""
         session = self._active
         if not session or session.request_id != request_id:
-            return
+            return False
         if session.state not in (SessionState.RUNNING, SessionState.AWAITING_INPUT):
-            return
+            return False
 
         session.state = SessionState.CANCELLED
         if session.pending_response and not session.pending_response.done():
@@ -176,6 +176,7 @@ class SessionManager:
         await session.claude_process.cancel()
         await db.update_request_status(self._db, request_id, "cancelled")
         logger.info("Request %s cancelled", request_id)
+        return True
 
     async def handle_permission_response(
         self, request_id: int, allowed: bool,
@@ -477,16 +478,24 @@ class SessionManager:
             text=html_content,
             parse_mode=ParseMode.HTML,
             reply_to_message_id=session.user_message_id,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(
-                    text="Allow",
-                    callback_data=f"perm:{session.request_id}:allow",
-                ),
-                InlineKeyboardButton(
-                    text="Deny",
-                    callback_data=f"perm:{session.request_id}:deny",
-                ),
-            ]]),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="Allow",
+                        callback_data=f"perm:{session.request_id}:allow",
+                    ),
+                    InlineKeyboardButton(
+                        text="Deny",
+                        callback_data=f"perm:{session.request_id}:deny",
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="Cancel",
+                        callback_data=f"cancel:{session.request_id}",
+                    ),
+                ],
+            ]),
         )
         await db.create_interaction(
             self._db, session.request_id, session.sub_counter,
@@ -518,6 +527,12 @@ class SessionManager:
             chat_id=session.chat_id,
             text=question,
             reply_to_message_id=session.user_message_id,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text="Cancel",
+                    callback_data=f"cancel:{session.request_id}",
+                ),
+            ]]),
         )
         await db.create_interaction(
             self._db, session.request_id, session.sub_counter,
@@ -533,24 +548,38 @@ class SessionManager:
         finally:
             session.pending_response = None
 
+    def _cancel_markup(self, session: ActiveSession) -> InlineKeyboardMarkup:
+        """Build an inline keyboard with a Cancel button for the active request."""
+        return InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text="Cancel",
+                callback_data=f"cancel:{session.request_id}",
+            ),
+        ]])
+
     async def _send_chunk(self, session: ActiveSession, text: str) -> None:
         """Send a text chunk as a Telegram message with HTML formatting."""
         html = truncate_html(md_to_telegram_html(text))
+        cancel_kb = self._cancel_markup(session)
         try:
-            await telegram_retry(lambda: self._bot.send_message(
+            msg = await telegram_retry(lambda: self._bot.send_message(
                 chat_id=session.chat_id,
                 text=html,
                 parse_mode=ParseMode.HTML,
                 reply_to_message_id=session.user_message_id,
+                reply_markup=cancel_kb,
             ))
         except Exception:
             # Fallback to plain text if HTML parsing fails
             truncated = text[:4000] if len(text) > 4000 else text
-            await telegram_retry(lambda: self._bot.send_message(
+            msg = await telegram_retry(lambda: self._bot.send_message(
                 chat_id=session.chat_id,
                 text=truncated,
                 reply_to_message_id=session.user_message_id,
+                reply_markup=cancel_kb,
             ))
+        if msg:
+            session.last_cancel_message_id = msg.message_id
 
     async def _handle_result(self, session: ActiveSession, text: str, usage) -> None:
         """Process a successful result event."""
@@ -603,6 +632,18 @@ class SessionManager:
                 await session.typing_task
             except asyncio.CancelledError:
                 pass
+
+        # Remove Cancel button from the last chunk message
+        if session.last_cancel_message_id:
+            try:
+                await self._bot.edit_message_reply_markup(
+                    chat_id=session.chat_id,
+                    message_id=session.last_cancel_message_id,
+                    reply_markup=None,
+                )
+            except Exception:
+                pass
+            session.last_cancel_message_id = None
 
         tokens_row = await db.get_token_totals(self._db, session.project_id)
         meta = {

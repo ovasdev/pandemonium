@@ -26,8 +26,8 @@ async def on_cancel(callback: CallbackQuery, session_manager: SessionManager) ->
         await callback.answer("Invalid action.")
         return
 
-    await session_manager.cancel_request(request_id)
-    await callback.answer("Cancelling...")
+    cancelled = await session_manager.cancel_request(request_id)
+    await callback.answer("Cancelling..." if cancelled else "Request already finished.")
 
 
 @router.callback_query(F.data.startswith("perm:"))
