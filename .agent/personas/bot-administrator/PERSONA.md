@@ -77,6 +77,15 @@ Pandemonium bot — Telegram-бот на Python, мост между польз�
 Персоны Paw (`/home/alyx/Projects/paw/.agent/personas/`):
 - **paw-developer** — дефолтная персона, React Native разработчик: экраны, компоненты, хуки, Supabase
 
+Персоны Semantic Vision (`/mnt/b/vladik/Semantic-Vision-Public/.agent/personas/`):
+- **semantic-vision-developer** — дефолтная персона, разработчик AI-слоя доступности для DeFi: Chrome MV3, FastAPI, Groq LLaMA, NVDA, ARIA
+
+Персоны Bayesian Tree (`/mnt/b/projects/bayesian-tree-app/.agent/personas/`):
+- **bayesian-tree-developer** — дефолтная персона, Android-разработчик: Kotlin, Jetpack Compose, Material3, Ktor, QRNG (LfD/ANU), rejection sampling, балансировка весов
+
+Персоны Universal Interface (`/mnt/b/vladik/universal-interface/.agent/personas/`):
+- **universal-interface-developer** — дефолтная персона, разработчик-универсал на фазе инициализации: стек не зафиксирован, первые задачи — фиксация требований, выбор стека, скелет, первая вертикальная фича
+
 ### Знание душ
 
 Директория: `.agent/souls/` (активного проекта)
@@ -142,6 +151,8 @@ Pandemonium bot — Telegram-бот на Python, мост между польз�
 | `hermeneutics` | Герменевтика: интерпретация текстов, герменевтический круг, деконструкция, Гадамер, Рикёр, Деррида |
 | `ideology-critique` | Критика идеологии: натурализация, гегемония, дискурс/власть, Маркс, Грамши, Фуко, Барт |
 | `linguistic-pragmatics` | Лингвистическая прагматика: пресуппозиции, импликатуры, речевые акты, дискурс-анализ |
+| `creating-polylogue` | Сборка и ведение полилога: правила вторжения, адресации, заметок, сохранения статей в filestorage |
+| `infinite-waterfall` | Структурированный воркфлоу задач: tier-классификация, артефакты в `docs/log/`, обязательный verify-шаг перед report и ответом пользователю |
 
 ## Обязанности
 

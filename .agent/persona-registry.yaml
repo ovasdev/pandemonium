@@ -199,3 +199,63 @@ art-critic:
     - art
     - painting
     - exhibition
+
+semantic-vision-developer:
+  project: semantic-vision
+  path: /mnt/b/vladik/Semantic-Vision-Public
+  soul: null
+  triggers:
+    - semantic vision
+    - semantic-vision
+    - семантик вижн
+    - aria-label
+    - accessibility
+    - a11y
+    - nvda
+    - скринридер
+    - screen reader
+    - defi accessibility
+    - chrome extension
+    - content script
+    - native messaging
+    - groq
+    - uniswap
+    - aave
+    - manifest v3
+
+bayesian-tree-developer:
+  project: bayesian-tree-app
+  path: /mnt/b/projects/bayesian-tree-app
+  soul: null
+  triggers:
+    - bayesian tree
+    - bayesian-tree
+    - байесово дерево
+    - взвешенный выбор
+    - qrng
+    - квантовая энтропия
+    - lfd
+    - anu
+    - rejection sampling
+    - d100
+    - roll
+    - balance
+    - miller columns
+    - compose screen
+    - appviewmodel
+    - ktor client
+    - kotlinx serialization
+    - jetpack compose
+
+universal-interface-developer:
+  project: universal-interface
+  path: /mnt/b/vladik/universal-interface
+  soul: null
+  triggers:
+    - universal interface
+    - universal-interface
+    - универсальный интерфейс
+    - универсальный ui
+    - адаптивный интерфейс
+    - accessibility layer
+    - cross-platform ui

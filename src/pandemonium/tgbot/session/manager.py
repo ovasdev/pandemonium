@@ -323,10 +323,6 @@ class SessionManager:
                 "PANDEMONIUM_SEND_FILE": send_file_script,
             }
 
-            # Persona prompt only for the default project (pandemonium-bot).
-            # External projects use their own CLAUDE.md — we don't inject anything.
-            persona_prompt = self._build_persona_prompt() if is_default_project else None
-
             # Auto-clear session when request limit is reached.
             max_rps = self._config.session.max_requests_per_session
             if max_rps > 0 and self._session_request_count >= max_rps:
@@ -339,6 +335,15 @@ class SessionManager:
 
             # Snapshot resume ID before starting (prevents race with init event).
             resume_id = self._next_resume_id
+
+            # Persona prompt only for the default project (pandemonium-bot)
+            # and only on the first request of a session — when resuming,
+            # Claude Code already has the system prompt from the original start.
+            persona_prompt = (
+                self._build_persona_prompt()
+                if is_default_project and resume_id is None
+                else None
+            )
 
             # Run Claude Code from the active project's directory so it
             # picks up that project's CLAUDE.md as the system prompt.

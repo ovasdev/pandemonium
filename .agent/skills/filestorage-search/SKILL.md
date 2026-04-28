@@ -20,7 +20,29 @@ related:
 | BASE_URL | `http://192.168.1.105:4733` |
 | API_KEY  | `$RASPBERY_FILESTORAGE_KEY` (env) |
 
-Все запросы: `Authorization: Bearer $RASPBERY_FILESTORAGE_KEY`.
+Все curl-запросы: `Authorization: Bearer $RASPBERY_FILESTORAGE_KEY`.
+
+## Клиент: MCP (предпочтительно) или curl
+
+Сервер `filestorage2` зарегистрирован как MCP в user-scope Claude Code — инструменты `mcp__filestorage2__*`. Предпочитай их над curl:
+
+| Задача | MCP tool |
+|--------|----------|
+| Полнотекстовый поиск | `search_files(q, limit)` |
+| Список файлов с фильтрами | `list_files(tag_ids, collection_ids, type, ...)` |
+| Список тегов | `list_tags` |
+| Список коллекций | `list_collections` |
+| Метаданные файла | `get_file_info(file_id)` |
+| Скачать | `download_file(file_id)` — возвращает base64 |
+
+Curl — fallback, когда MCP недоступен (например из shell-скрипта).
+
+## Сохранение файлов
+
+Для загрузки файла в filestorage2 — смотри `pandemonium-filestorage` → `workflow-dual-save.md`. Обязательные правила:
+- Коллекция `pandemonium` — **всегда**
+- Тег `pandemonium` — **всегда**
+- Тег активной персоны (`$PANDEMONIUM_ACTIVE_PERSONA`, дефолт `bot-administrator`) — **всегда**
 
 ---
 

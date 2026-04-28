@@ -24,6 +24,23 @@ created: 2026-04-03
 | BASE_URL | `http://192.168.1.105:4733` |
 | API_KEY  | `$RASPBERY_FILESTORAGE_KEY` (env) |
 | Обязательная коллекция | `pandemonium` (id: 2) |
+| Обязательный тег | `pandemonium` + slug активной персоны (`$PANDEMONIUM_ACTIVE_PERSONA`, дефолт `bot-administrator`) |
+
+## Клиент: MCP или curl
+
+Предпочитай MCP — сервер `filestorage2` зарегистрирован в user-scope Claude Code, инструменты вида `mcp__filestorage2__*`:
+
+| Операция | MCP tool | Curl fallback |
+|----------|----------|---------------|
+| Загрузка | `upload_file(filename, content_base64, title, description)` | `POST /api/files` (multipart) |
+| Список тегов | `list_tags` | `GET /api/tags` |
+| Создать тег | `create_tag(name, color)` | `POST /api/tags` |
+| Повесить теги | `attach_tags(file_group_id, tag_uuids)` | `POST /api/files/{fgid}/tags` |
+| Список коллекций | `list_collections` | `GET /api/collections` |
+| Добавить в коллекцию | `add_files_to_collection(collection_id, file_group_ids)` | `POST /api/collections/{id}/files` |
+| Поиск | `search_files(q)` / `list_files(filters)` | `GET /api/files/search` / `GET /api/files` |
+
+MCP работает с UUID (`file_group_id`, `tag.uuid`, `collection.uuid`). curl может использовать числовой `id` для эндпоинтов первого класса, но для связочных — тоже UUID.
 
 ## Шаги
 
@@ -31,6 +48,8 @@ created: 2026-04-03
 
 Определить теги и коллекции по системе тегирования (`pandemonium-tagging-system.md`):
 
+- **Pandemonium tag** — `pandemonium` (обязателен)
+- **Persona tag** — slug активной персоны (`$PANDEMONIUM_ACTIVE_PERSONA`, дефолт `bot-administrator`) — **обязателен**
 - **Skill tag** — к какому скилу относится файл (e.g. `analytical-psychology`)
 - **Type tag** — тип документа (e.g. `workflow`, `reference`, `theory`)
 - **Domain tags** — смысловые области (e.g. `психология`, `программирование`)
@@ -52,51 +71,81 @@ meta = FileMeta(
 entries = fs.save(source_path, filename, meta)
 ```
 
-### 3. Загрузить в filestorage2
+### 3. Загрузить в filestorage2 (MCP)
 
+```
+upload_file(
+  filename="display-name.ext",
+  content_base64=<base64(file_bytes)>,
+  title="...",
+  description="...",
+)
+# → file object: { id, file_group_id, ... }
+```
+
+Запомнить `file_group_id` (UUID) — он нужен всем последующим операциям.
+
+**Curl fallback:**
 ```bash
-# Upload file
-FILE_ID=$(curl -s -X POST "http://192.168.1.105:4733/api/files" \
+FGID=$(curl -s -X POST "http://192.168.1.105:4733/api/files" \
   -H "Authorization: Bearer $RASPBERY_FILESTORAGE_KEY" \
   -F "file=@/path/to/file;filename=display-name.ext" \
-  -F "description=..." | jq -r '.id')
-
-# Add to pandemonium collection (id: 2) — ОБЯЗАТЕЛЬНО
-curl -s -X POST "http://192.168.1.105:4733/api/collections/2/files" \
-  -H "Authorization: Bearer $RASPBERY_FILESTORAGE_KEY" \
-  -H "Content-Type: application/json" \
-  -d "{\"file_ids\": [$FILE_ID]}"
+  -F "description=..." | jq -r '.file_group_id')
 ```
 
-### 4. Присвоить теги
+### 4. Добавить в коллекцию pandemonium — ОБЯЗАТЕЛЬНО
 
-Перед присвоением тега — проверить, существует ли он. Если нет — создать.
+Получить UUID коллекции `pandemonium` (один раз на сессию):
 
+```
+list_collections  # найти { name: "pandemonium" } → collection.uuid
+add_files_to_collection(collection_id=<pandemonium_uuid>, file_group_ids=[<fgid>])
+```
+
+**Curl fallback** (через числовой id=2):
 ```bash
-# Получить существующие теги
-curl -s "http://192.168.1.105:4733/api/tags" \
-  -H "Authorization: Bearer $RASPBERY_FILESTORAGE_KEY"
-
-# Создать тег если не существует
-curl -s -X POST "http://192.168.1.105:4733/api/tags" \
+curl -s -X POST "http://192.168.1.105:4733/api/collections/<pandemonium-uuid>/files" \
   -H "Authorization: Bearer $RASPBERY_FILESTORAGE_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name": "skill/analytical-psychology", "color": "#8b5cf6"}'
-
-# Присвоить теги файлу
-curl -s -X POST "http://192.168.1.105:4733/api/files/$FILE_ID/tags" \
-  -H "Authorization: Bearer $RASPBERY_FILESTORAGE_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"tag_ids": [10, ...]}'
+  -d "{\"file_group_ids\": [\"$FGID\"]}"
 ```
 
-**Тег `pandemonium` (id: 10) — всегда добавлять.**
+### 5. Присвоить теги — ОБЯЗАТЕЛЬНО `pandemonium` + тег персоны
 
-### 5. Добавить в дополнительные коллекции (если нужно)
+Получить список тегов (один раз на сессию), найти нужные UUID. Отсутствующие — создать.
 
-Если файл относится к другим коллекциям помимо `pandemonium` — добавить. Создать коллекцию, если не существует.
+```
+list_tags
+# Для каждого тега, которого нет в ответе:
+create_tag(name="<имя>", color="<hex>")
 
-### 6. Отправить в Telegram (если в контексте бота)
+attach_tags(
+  file_group_id=<fgid>,
+  tag_uuids=[
+    <uuid of "pandemonium">,        # ВСЕГДА
+    <uuid of "$PANDEMONIUM_ACTIVE_PERSONA">,  # ВСЕГДА (например "bot-administrator")
+    <uuid of "skill/...">,          # по контексту
+    <uuid of "type/...">,
+    <uuid of "domain/...">,
+  ],
+)
+```
+
+**Два мандатных тега:** `pandemonium` + slug активной персоны. Без них сохранение считается некорректным.
+
+**Curl fallback:**
+```bash
+curl -s -X POST "http://192.168.1.105:4733/api/files/$FGID/tags" \
+  -H "Authorization: Bearer $RASPBERY_FILESTORAGE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"tag_uuids": ["<uuid1>", "<uuid2>", ...]}'
+```
+
+### 6. Добавить в дополнительные коллекции (если нужно)
+
+Если файл относится к другим коллекциям помимо `pandemonium` — добавить через `add_files_to_collection`. Создать коллекцию (`create_collection`), если не существует.
+
+### 7. Отправить в Telegram (если в контексте бота)
 
 Если установлены `PANDEMONIUM_SEND_FILE` и `PANDEMONIUM_CHAT_ID` — отправить **сам сохранённый файл** с caption, содержащим title, теги, коллекции и description (см. основной SKILL.md, секция "Workflow: Telegram-контекст").
 

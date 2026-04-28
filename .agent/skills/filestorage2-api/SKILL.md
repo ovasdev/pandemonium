@@ -7,6 +7,10 @@ description: "Universal reference for filestorage2 server REST API. Triggers whe
 
 Универсальный справочник по API filestorage2. Конкретные серверы (адреса, ключи) — в воркфлоу.
 
+## MCP vs curl
+
+Если сервер filestorage2 зарегистрирован как MCP в Claude Code (`mcp__filestorage2__*`) — предпочитай MCP-инструменты (`upload_file`, `search_files`, `list_files`, `attach_tags`, `add_files_to_collection` и т.д.) над curl. Этот документ — справочник HTTP API, полезен как fallback и для понимания того, что MCP делает под капотом.
+
 ## Authentication
 
 ```
@@ -14,6 +18,15 @@ Authorization: Bearer <API_KEY>
 ```
 
 API keys имеют префикс `sk-fs2-`. Передаются в заголовке `Authorization: Bearer`.
+
+## Идентификаторы: id vs UUID
+
+Сервер использует два типа идентификаторов:
+
+- **Числовой `id`** (целое) — возвращается в ответах, используется в путях ресурсов первого класса: `/api/files/{id}` (GET/PATCH/DELETE по файлу, download, thumbnail, versions), а также как значение query-параметров фильтрации (`tag_ids`, `collection_ids`).
+- **UUID** (`file_group_id`, `tag.uuid`, `collection.uuid`) — используется во **всех связочных** эндпоинтах (присвоение/снятие тегов, bulk-операции, sharing).
+
+**Правило:** в путях вида `/api/files/{FGID}/tags`, `/api/tags/{TAG_UUID}/files`, `/api/sharing/...` и в телах связочных запросов (`tag_uuids`, `file_group_ids`) — **только UUID**. Числовой id здесь вернёт 400 `UUID parsing failed`. В теле связочных запросов поле называется `tag_uuids`/`file_group_ids`, **не** `tag_ids`/`file_ids`.
 
 ## Files
 
@@ -143,24 +156,24 @@ curl -s -X PATCH "$BASE_URL/api/tags/{id}" \
 # Delete tag
 curl -s -X DELETE "$BASE_URL/api/tags/{id}" -H "Authorization: Bearer $API_KEY"
 
-# Get file's tags
-curl -s "$BASE_URL/api/files/{file_id}/tags" -H "Authorization: Bearer $API_KEY"
+# Get file's tags (UUID в пути — file_group_id)
+curl -s "$BASE_URL/api/files/{file_group_id}/tags" -H "Authorization: Bearer $API_KEY"
 
-# Tag a file
-curl -s -X POST "$BASE_URL/api/files/{file_id}/tags" \
+# Tag a file (UUID в пути, tag_uuids в теле)
+curl -s -X POST "$BASE_URL/api/files/{file_group_id}/tags" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"tag_ids": [1, 2]}'
+  -d '{"tag_uuids": ["<tag-uuid-1>", "<tag-uuid-2>"]}'
 
-# Remove tag from file
-curl -s -X DELETE "$BASE_URL/api/files/{file_id}/tags/{tag_id}" \
+# Remove tag from file (оба параметра — UUID)
+curl -s -X DELETE "$BASE_URL/api/files/{file_group_id}/tags/{tag_uuid}" \
   -H "Authorization: Bearer $API_KEY"
 
-# Bulk tag files
-curl -s -X POST "$BASE_URL/api/tags/{id}/files" \
+# Bulk tag files (UUID тега в пути, file_group_ids в теле)
+curl -s -X POST "$BASE_URL/api/tags/{tag_uuid}/files" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"file_ids": [1, 2, 3]}'
+  -d '{"file_group_ids": ["<fgid-1>", "<fgid-2>"]}'
 ```
 
 ## Collections
@@ -175,11 +188,11 @@ curl -s -X POST "$BASE_URL/api/collections" \
   -H "Content-Type: application/json" \
   -d '{"name": "My Collection", "description": "..."}'
 
-# Add files to collection
-curl -s -X POST "$BASE_URL/api/collections/{id}/files" \
+# Add files to collection (UUID в пути, file_group_ids в теле)
+curl -s -X POST "$BASE_URL/api/collections/{collection_uuid}/files" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"file_ids": [1, 2, 3]}'
+  -d '{"file_group_ids": ["<fgid-1>", "<fgid-2>"]}'
 ```
 
 ## Sharing (v2)

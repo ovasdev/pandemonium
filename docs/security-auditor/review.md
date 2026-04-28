@@ -123,29 +123,29 @@ Bot token = полный контроль над ботом:
 
 ---
 
-## MEDIUM: API Key Hardcoded в исходном коде
+## MEDIUM: API Key Hardcoded в исходном коде — **RESOLVED 2026-04-19**
 
 ### Описание
 
-`cmd_wiki` содержит hardcoded credentials:
+`cmd_wiki` ранее содержал hardcoded credentials. Исходный код на момент аудита:
 
 ```python
 MG_URL = "https://marginalias.net"
-MG_KEY = "sk-fs2-5cMnerTFUTuijez8YjQp8O1QnoDk4z2BfW8uLpyO3rlQ"
+MG_KEY = "sk-fs2-5cMnerTFUTuijez8YjQp8O1QnoDk4z2BfW8uLpyO3rlQ"  # старый ключ, уже ротирован
 AUTH_HEADER = {"Authorization": f"Bearer {MG_KEY}"}
 ```
 
-### Risk
+### Resolution (2026-04-19)
 
-- API ключ к FileStorage2 на marginalias.net — в открытом коде
-- Если репозиторий станет публичным — полный доступ к хранилищу
-- Любой, кто читает код (включая Claude Code в других проектах) — видит ключ
+- Значения вынесены в env: `MG_URL` и `MG_KEY` читаются через `os.environ` из `.env` (загружается `python-dotenv` в `__main__.py`).
+- `.env` в `.gitignore` — утечки в публичный репо не будет.
+- Ключ ротирован: старый `sk-fs2-5cMnerTF...` → новый `sk-fs2-7dh590YU...`.
+- Воркфлоу `.agent/workflows/marginalias-storage.md` переписан на `${MG_KEY:?...}` — падает явно, если env не задан.
 
-### Mitigation
+### Остаточный риск
 
-- **Немедленно:** перенести в `config.yaml` или env variable
-- **Ротировать ключ** после переноса (текущий ключ скомпрометирован в git history)
-- Добавить `config.yaml` в `.gitignore` (если ещё нет)
+- **Git history**: старый ключ `sk-fs2-5cMnerTF...` всё ещё в истории коммитов. Если репо когда-нибудь станет публичным — нужен `git filter-repo` для очистки истории. Пока репо приватный — не критично, но учитывать при публикации.
+- Новый ключ в `.env` — не должен попасть в git; `.env` уже в `.gitignore`.
 
 ---
 

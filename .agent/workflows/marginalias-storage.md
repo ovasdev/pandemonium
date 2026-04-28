@@ -7,8 +7,10 @@
 ## Подключение
 
 ```bash
-MG_URL="https://marginalias.net"
-MG_KEY="sk-fs2-5cMnerTFUTuijez8YjQp8O1QnoDk4z2BfW8uLpyO3rlQ"
+# MG_URL и MG_KEY берутся из окружения (.env загружается при старте бота).
+# Если вызываешь из shell — сначала `source .env` или экспортируй вручную.
+MG_URL="${MG_URL:-https://marginalias.net}"
+MG_KEY="${MG_KEY:?set MG_KEY in environment}"
 AUTH="Authorization: Bearer $MG_KEY"
 ```
 

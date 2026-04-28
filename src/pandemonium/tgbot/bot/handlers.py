@@ -931,8 +931,12 @@ async def cmd_wiki(message: Message) -> None:
         await message.reply("Usage: /wiki <article name>")
         return
 
-    MG_URL = "https://marginalias.net"
-    MG_KEY = "sk-fs2-5cMnerTFUTuijez8YjQp8O1QnoDk4z2BfW8uLpyO3rlQ"
+    MG_URL = os.environ.get("MG_URL", "https://marginalias.net")
+    try:
+        MG_KEY = os.environ["MG_KEY"]
+    except KeyError:
+        await message.reply("MG_KEY не задан в окружении.")
+        return
     AUTH_HEADER = {"Authorization": f"Bearer {MG_KEY}"}
 
     await message.reply(f"Ищу статью: {query}...")
