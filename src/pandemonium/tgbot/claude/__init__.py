@@ -2,6 +2,7 @@
 
 from pandemonium.tgbot.claude.process import ClaudeProcess
 from pandemonium.tgbot.claude.types import (
+    AskUserQuestionEvent,
     AssistantEvent,
     ClaudeEvent,
     InputRequestEvent,
@@ -15,6 +16,7 @@ from pandemonium.tgbot.claude.types import (
 
 __all__ = [
     "ClaudeProcess",
+    "AskUserQuestionEvent",
     "AssistantEvent",
     "ClaudeEvent",
     "InputRequestEvent",

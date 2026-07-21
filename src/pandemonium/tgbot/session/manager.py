@@ -16,6 +16,7 @@ import pandemonium.tgbot.db as db
 from pandemonium.tgbot.bot.retry import telegram_retry
 from pandemonium.tgbot.claude.process import ClaudeProcess
 from pandemonium.tgbot.claude.types import (
+    AskUserQuestionEvent,
     AssistantEvent,
     InputRequestEvent,
     PermissionRequestEvent,
@@ -399,6 +400,10 @@ class SessionManager:
                         case ToolUseEvent(tool=tool):
                             logger.info("Tool use: %s", tool)
 
+                        case AskUserQuestionEvent(questions=questions):
+                            await buffer.flush()
+                            await self._handle_ask_user_question(session, questions)
+
                         case PermissionRequestEvent(tool=tool, description=desc):
                             await buffer.flush()
                             await self._handle_permission_request(session, tool, desc)
@@ -547,6 +552,65 @@ class SessionManager:
             pass
         finally:
             session.pending_response = None
+
+    async def _handle_ask_user_question(
+        self, session: ActiveSession, questions: list[dict],
+    ) -> None:
+        """Show AskUserQuestion tool call as message(s) with option buttons.
+
+        In headless mode the tool itself fails inside Claude Code and the turn
+        ends, so we don't block waiting for an answer here. The button press
+        (callback ``ask:<idx>``) or a plain text reply starts a new request
+        that resumes the same Claude session with the chosen answer.
+        """
+        import html as html_mod
+
+        for q in questions:
+            question_text = q.get("question", "")
+            options = q.get("options", [])
+            multi = q.get("multiSelect", False)
+
+            lines = [f"❓ <b>{html_mod.escape(question_text)}</b>"]
+            for opt in options:
+                label = html_mod.escape(opt.get("label", ""))
+                desc = html_mod.escape(opt.get("description", ""))
+                lines.append(f"\n• <b>{label}</b>" + (f" — {desc}" if desc else ""))
+            hint = (
+                "\nМожно выбрать несколько — ответь текстом."
+                if multi
+                else "\nВыбери вариант кнопкой или ответь текстом."
+            )
+            lines.append(hint)
+            text = "\n".join(lines)
+
+            buttons = [
+                [InlineKeyboardButton(
+                    text=(opt.get("label", "")[:60] or "—"),
+                    callback_data=f"ask:{i}",
+                )]
+                for i, opt in enumerate(options)
+            ]
+
+            session.sub_counter += 1
+            plain = question_text + "\n" + "\n".join(
+                f"- {opt.get('label', '')}" for opt in options
+            )
+            await self._storage.save_interaction(
+                session.project_id, session.request_number,
+                session.sub_counter, plain, is_response=False,
+            )
+            msg = await telegram_retry(lambda: self._bot.send_message(
+                chat_id=session.chat_id,
+                text=text,
+                parse_mode=ParseMode.HTML,
+                reply_to_message_id=session.user_message_id,
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None,
+            ))
+            await db.create_interaction(
+                self._db, session.request_id, session.sub_counter,
+                "question", "from_claude", plain,
+                msg.message_id if msg else None,
+            )
 
     def _cancel_markup(self, session: ActiveSession) -> InlineKeyboardMarkup:
         """Build an inline keyboard with a Cancel button for the active request."""

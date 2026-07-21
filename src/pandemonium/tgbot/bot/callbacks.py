@@ -57,6 +57,80 @@ async def on_permission(callback: CallbackQuery, session_manager: SessionManager
     await callback.answer(label)
 
 
+@router.callback_query(F.data.startswith("ask:"))
+async def on_ask_answer(
+    callback: CallbackQuery,
+    config: AppConfig,
+    session_manager: SessionManager,
+) -> None:
+    """Handle option button press for an AskUserQuestion — resume session with the answer."""
+    message = callback.message
+    if not message or not message.reply_markup:
+        await callback.answer("Вопрос устарел.")
+        return
+
+    # The pressed button's text is the chosen option label
+    label: str | None = None
+    for row in message.reply_markup.inline_keyboard:
+        for btn in row:
+            if btn.callback_data == callback.data:
+                label = btn.text
+    if label is None:
+        await callback.answer("Вариант не найден.")
+        return
+
+    active = session_manager.active_session
+    if active and active.state in (SessionState.RUNNING, SessionState.AWAITING_INPUT):
+        await callback.answer("Дождись завершения текущего запроса.")
+        return
+
+    # First line of the message is "❓ <question>"
+    first_line = (message.text or "").split("\n", 1)[0].lstrip("❓ ").strip()
+    prompt = f"Мой ответ на вопрос «{first_line}»: {label}"
+
+    # Mark the choice and drop the keyboard
+    try:
+        await message.edit_reply_markup(reply_markup=None)
+        await message.edit_text(f"{message.text}\n\n→ {label}")
+    except Exception:
+        logger.debug("Could not update question message", exc_info=True)
+
+    from pandemonium.tgbot.bot.formatters import format_status_message
+
+    project = config.get_project(session_manager.active_project_id) or config.default_project
+    status_msg = await message.reply(
+        format_status_message(0, SessionState.RUNNING),
+    )
+    try:
+        req_number = await session_manager.create_request(
+            project_id=project.id,
+            user_id=callback.from_user.id,
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            status_message_id=status_msg.message_id,
+            prompt=prompt,
+        )
+        session = session_manager.active_session
+        request_id = session.request_id if session else 0
+        await status_msg.edit_text(
+            format_status_message(req_number, SessionState.RUNNING),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(
+                    text="Cancel",
+                    callback_data=f"cancel:{request_id}",
+                )],
+            ]),
+        )
+        await callback.answer(label[:190])
+    except RuntimeError:
+        await status_msg.edit_text("A request is already in progress.")
+        await callback.answer()
+    except Exception:
+        logger.exception("Failed to create request from ask answer")
+        await status_msg.edit_text("Failed to start Claude Code.")
+        await callback.answer()
+
+
 @router.callback_query(F.data.startswith("project:"))
 async def on_project_switch(
     callback: CallbackQuery,

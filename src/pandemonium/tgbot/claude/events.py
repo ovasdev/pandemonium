@@ -16,6 +16,7 @@ import json
 import logging
 
 from pandemonium.tgbot.claude.types import (
+    AskUserQuestionEvent,
     AssistantEvent,
     ClaudeEvent,
     InputRequestEvent,
@@ -49,15 +50,18 @@ def _extract_assistant_text(message: dict) -> str:
     return "".join(parts)
 
 
-def _extract_tool_use(message: dict) -> ToolUseEvent | None:
+def _extract_tool_use(message: dict) -> ToolUseEvent | AskUserQuestionEvent | None:
     """Extract the first tool_use block from assistant message."""
     content = message.get("content", [])
     for block in content:
         if block.get("type") == "tool_use":
-            return ToolUseEvent(
-                tool=block.get("name", "unknown"),
-                input=block.get("input", {}),
-            )
+            name = block.get("name", "unknown")
+            tool_input = block.get("input", {})
+            if name == "AskUserQuestion":
+                return AskUserQuestionEvent(
+                    questions=tool_input.get("questions", []),
+                )
+            return ToolUseEvent(tool=name, input=tool_input)
     return None
 
 

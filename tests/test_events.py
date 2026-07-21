@@ -4,6 +4,7 @@ import json
 
 from pandemonium.tgbot.claude.events import parse_event
 from pandemonium.tgbot.claude.types import (
+    AskUserQuestionEvent,
     AssistantEvent,
     InputRequestEvent,
     PermissionRequestEvent,
@@ -88,6 +89,55 @@ def test_parse_tool_use_event():
     assert isinstance(event, ToolUseEvent)
     assert event.tool == "Write"
     assert event.input["path"] == "/tmp/test.py"
+
+
+def test_parse_ask_user_question_event():
+    line = json.dumps({
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{
+                "type": "tool_use",
+                "id": "tool-2",
+                "name": "AskUserQuestion",
+                "input": {
+                    "questions": [{
+                        "question": "Which library should we use?",
+                        "header": "Library",
+                        "multiSelect": False,
+                        "options": [
+                            {"label": "aiogram", "description": "Async Telegram framework"},
+                            {"label": "pyTelegramBotAPI", "description": "Sync alternative"},
+                        ],
+                    }],
+                },
+            }],
+        },
+    })
+    event = parse_event(line)
+    assert isinstance(event, AskUserQuestionEvent)
+    assert len(event.questions) == 1
+    q = event.questions[0]
+    assert q["question"] == "Which library should we use?"
+    assert [o["label"] for o in q["options"]] == ["aiogram", "pyTelegramBotAPI"]
+
+
+def test_parse_ask_user_question_empty_input():
+    line = json.dumps({
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{
+                "type": "tool_use",
+                "id": "tool-3",
+                "name": "AskUserQuestion",
+                "input": {},
+            }],
+        },
+    })
+    event = parse_event(line)
+    assert isinstance(event, AskUserQuestionEvent)
+    assert event.questions == []
 
 
 def test_parse_result_event():

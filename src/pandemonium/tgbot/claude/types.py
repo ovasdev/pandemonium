@@ -53,6 +53,16 @@ class InputRequestEvent:
     question: str
 
 
+@dataclass(frozen=True, slots=True)
+class AskUserQuestionEvent:
+    """Claude used the AskUserQuestion tool — question(s) with answer options.
+
+    Each question is a dict: {"question", "header", "options": [{"label",
+    "description"}], "multiSelect"}.
+    """
+    questions: list[dict] = field(default_factory=list)
+
+
 type ClaudeEvent = (
     SystemEvent
     | AssistantEvent
@@ -61,4 +71,5 @@ type ClaudeEvent = (
     | ResultEvent
     | PermissionRequestEvent
     | InputRequestEvent
+    | AskUserQuestionEvent
 )
